@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cowdex</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom styles based on your CSS file */
+        body {
+            background-color: #436a7b;
+            /* Placeholder pattern until you add real image */
+            background-image: radial-gradient(#567f91 1px, transparent 1px);
+            background-size: 20px 20px;
+            font-family: 'Lora', serif;
+            color: #813434;
+        }
+        
+        h1, h2, h3, h4, button {
+            font-family: 'Fredoka', sans-serif; /* Similar vibe to Tahoma but cuter */
+        }
+
+        /* The specific box shadow from your CSS */
+        .retro-shadow {
+            box-shadow: 4px 4px 0px 1px rgba(0,0,0,0.25);
+        }
+        
+        .retro-shadow-sm {
+            box-shadow: 2px 2px 0px 1px rgba(0,0,0,0.25);
+        }
+
+        /* Hide scrollbar for gallery but allow scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .polaroid {
+            background: white;
+            padding: 8px 8px 24px 8px;
+            box-shadow: 1px 2px 4px rgba(0,0,0,0.2);
+            transform: rotate(-2deg);
+        }
+        .polaroid:nth-child(even) {
+            transform: rotate(1deg);
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'cow-bg': '#fff6f6',
+                        'cow-border': '#ffc3c3',
+                        'cow-card': '#fad17f',
+                        'cow-text': '#813434',
+                        'cow-accent': '#9e4c4c',
+                        'cow-star': '#FF9E55'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen p-2 sm:p-4">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- DATA ---
+        const INITIAL_COWS = [
+            {
+                id: 'jersey',
+                name: 'Jersey',
+                rarity: 3,
+                description: "My favorite cow breed! These cows have such a cute head that looks like a deer. Their color and their lighter eyebrow and nose is sooo pretty.",
+                tags: ['Dairy', 'Small', 'Cute'],
+                wikiUrl: 'https://en.wikipedia.org/wiki/Jersey_cattle',
+                image: 'https://images.unsplash.com/photo-1527153857715-3908f2bae5e8?auto=format&fit=crop&q=80&w=500'
+            },
+            {
+                id: 'highland',
+                name: 'Highland',
+                rarity: 2,
+                description: "A very unique looking cow. Very fluffy and very cute looking hair on their head. Just rare enough in the US that it's always exciting to see them.",
+                tags: ['Beef', 'Fluffy', 'Hardy'],
+                wikiUrl: 'https://en.wikipedia.org/wiki/Highland_cattle',
+                image: 'https://images.unsplash.com/photo-1505672675380-4d3295874249?auto=format&fit=crop&q=80&w=500'
+            },
+            {
+                id: 'belted-galloway',
+                name: 'Belted Galloway',
+                rarity: 2,
+                description: "My favorite relatively common breed in the US. The belt is so distinctive from far away and they look pretty fluffy close up.",
+                tags: ['Beef', 'Striped', 'Oreo Cow'],
+                wikiUrl: 'https://en.wikipedia.org/wiki/Belted_Galloway',
+                image: 'https://images.unsplash.com/photo-1448226027788-294d373c244c?auto=format&fit=crop&q=80&w=500'
+            },
+            {
+                id: 'holstein',
+                name: 'Holstein',
+                rarity: 1,
+                description: "The classic cow. The most common dairy cow in the US. Their pattern is really pretty and the calves have really disproportionately long legs.",
+                tags: ['Dairy', 'Common', 'Big'],
+                wikiUrl: 'https://en.wikipedia.org/wiki/Holstein_Friesian_cattle',
+                image: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?auto=format&fit=crop&q=80&w=500'
+            },
+            {
+                id: 'zebu',
+                name: 'Zebu',
+                rarity: 4,
+                description: "Zebu are a South Asian subspecies. They're resilient and have a distinctive hump on their back. I love their weird look and grey color.",
+                tags: ['Draught', 'Hump', 'Exotic'],
+                wikiUrl: 'https://en.wikipedia.org/wiki/Zebu',
+                image: 'https://images.unsplash.com/photo-1595168051644-d83296c73df9?auto=format&fit=crop&q=80&w=500'
+            }
+        ];
+
+        // --- COMPONENTS ---
+
+        // Helper: Star Rating Component
+        const Stars = ({ count }) => (
+            <div className="flex text-cow-star text-lg drop-shadow-sm tracking-tighter">
+                {[...Array(count)].map((_, i) => <span key={i}>★</span>)}
+            </div>
+        );
+
+        // Helper: Badge Component
+        const Badge = ({ icon, label, earned }) => (
+            <div className={`flex flex-col items-center p-2 rounded-lg ${earned ? 'opacity-100' : 'opacity-40 grayscale'}`}>
+                <div className="bg-cow-card w-12 h-12 rounded-full flex items-center justify-center retro-shadow text-2xl text-cow-text">
+                    <i className={icon}></i>
+                </div>
+                <span className="text-xs font-bold mt-1 text-center">{label}</span>
+            </div>
+        );
+
+        // --- MAIN APP ---
+        const App = () => {
+            // State
+            const [view, setView] = useState('spot'); // spot, collection, detail
+            const [selectedCowId, setSelectedCowId] = useState(null);
+            const [sightings, setSightings] = useState([]);
+            const [wishlist, setWishlist] = useState([]);
+            const [userPhotos, setUserPhotos] = useState({}); // { cowId: [base64, base64] }
+            const [searchTerm, setSearchTerm] = useState('');
+            const [sortMode, setSortMode] = useState('name'); // name, rarity
+            
+            // Edit/Add Spot Modal State
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [editingSighting, setEditingSighting] = useState(null); // null = new spot, obj = edit
+
+            // Load Data
+            useEffect(() => {
+                const savedSightings = localStorage.getItem('cowdex_sightings');
+                const savedWishlist = localStorage.getItem('cowdex_wishlist');
+                const savedPhotos = localStorage.getItem('cowdex_photos');
+                
+                if (savedSightings) setSightings(JSON.parse(savedSightings));
+                if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+                if (savedPhotos) setUserPhotos(JSON.parse(savedPhotos));
+            }, []);
+
+            // Save Data
+            useEffect(() => {
+                localStorage.setItem('cowdex_sightings', JSON.stringify(sightings));
+            }, [sightings]);
+            useEffect(() => {
+                localStorage.setItem('cowdex_wishlist', JSON.stringify(wishlist));
+            }, [wishlist]);
+            useEffect(() => {
+                localStorage.setItem('cowdex_photos', JSON.stringify(userPhotos));
+            }, [userPhotos]);
+
+            // Logic: Get specific cow
+            const getCow = (id) => INITIAL_COWS.find(c => c.id === id);
+
+            // Logic: Sort & Filter
+            const filteredCows = INITIAL_COWS.filter(cow => 
+                cow.name.toLowerCase().includes(searchTerm.toLowerCase())
+            ).sort((a, b) => {
+                if (wishlist.includes(b.id) && !wishlist.includes(a.id)) return 1;
+                if (wishlist.includes(a.id) && !wishlist.includes(b.id)) return -1;
+                if (sortMode === 'rarity') return b.rarity - a.rarity;
+                return a.name.localeCompare(b.name);
+            });
+
+            // Logic: Add/Edit Spot
+            const handleSaveSpot = (spotData) => {
+                if (editingSighting) {
+                    // Update existing
+                    setSightings(sightings.map(s => s.id === spotData.id ? spotData : s));
+                } else {
+                    // Create new
+                    const newSpot = { ...spotData, id: Date.now(), cowId: selectedCowId };
+                    setSightings([newSpot, ...sightings]);
+                    
+                    // "Moo" effect (Visual for now)
+                    alert("Moo! Cow spotted!"); 
+                }
+                setIsModalOpen(false);
+                setEditingSighting(null);
+            };
+
+            const toggleWishlist = (id, e) => {
+                e.stopPropagation();
+                if (wishlist.includes(id)) {
+                    setWishlist(wishlist.filter(w => w !== id));
+                } else {
+                    setWishlist([...wishlist, id]);
+                }
+            };
+
+            // Image Upload Handler
+            const handlePhotoUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = reader.result;
+                    setUserPhotos(prev => ({
+                        ...prev,
+                        [selectedCowId]: [base64, ...(prev[selectedCowId] || [])]
+                    }));
+                };
+                reader.readAsDataURL(file);
+            };
+
+            // --- NAVIGATION RENDERING ---
+            return (
+                <div className="max-w-md mx-auto h-full flex flex-col relative" style={{ height: 'calc(100vh - 20px)' }}>
+                    
+                    {/* MAIN CONTAINER */}
+                    <div className="flex-1 bg-cow-bg border-[5px] border-dotted border-cow-border rounded-lg overflow-hidden flex flex-col shadow-xl">
+                        
+                        {/* HEADER */}
+                        <div className="p-4 border-b-4 border-dotted border-cow-border bg-[#fffbfb] flex justify-between items-center">
+                            <h1 className="text-2xl text-cow-accent font-bold">
+                                {view === 'spot' && 'Cow Spotter'}
+                                {view === 'collection' && 'My Collection'}
+                                {view === 'detail' && 'Cow Details'}
+                            </h1>
+                            {view === 'detail' && (
+                                <button onClick={() => setView('spot')} className="text-cow-text hover:underline text-sm font-bold">Close</button>
+                            )}
+                        </div>
+
+                        {/* CONTENT AREA */}
+                        <div className="flex-1 overflow-y-auto p-4 custom-scroll">
+                            
+                            {/* VIEW: SPOT (SEARCH) */}
+                            {view === 'spot' && (
+                                <div className="space-y-4">
+                                    {/* Search Bar */}
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Search breeds..." 
+                                            className="w-full p-2 border-2 border-cow-border rounded bg-white text-cow-text placeholder-cow-border focus:outline-none focus:border-cow-card"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                        <button 
+                                            onClick={() => setSortMode(sortMode === 'name' ? 'rarity' : 'name')}
+                                            className="px-3 bg-cow-card rounded border-b-2 border-r-2 border-orange-300 text-cow-text"
+                                        >
+                                            <i className="ph ph-arrows-down-up"></i>
+                                        </button>
+                                    </div>
+
+                                    {/* List */}
+                                    <div className="space-y-3 pb-20">
+                                        {filteredCows.map(cow => {
+                                            const seenCount = sightings.filter(s => s.cowId === cow.id).length;
+                                            const isWishlisted = wishlist.includes(cow.id);
+                                            
+                                            return (
+                                                <div 
+                                                    key={cow.id} 
+                                                    onClick={() => { setSelectedCowId(cow.id); setView('detail'); }}
+                                                    className={`
+                                                        bg-cow-card rounded-md retro-shadow p-3 flex items-center gap-3 cursor-pointer transition-transform active:scale-95
+                                                        ${seenCount > 0 ? 'border-2 border-cow-accent' : ''}
+                                                    `}
+                                                >
+                                                    {/* Icon/Image */}
+                                                    <div className="w-16 h-16 bg-white rounded flex-shrink-0 overflow-hidden border border-orange-200">
+                                                        <img src={cow.image} className="w-full h-full object-cover" />
+                                                    </div>
+
+                                                    {/* Info */}
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between items-start">
+                                                            <h3 className="font-bold text-lg leading-tight">{cow.name}</h3>
+                                                            <Stars count={cow.rarity} />
+                                                        </div>
+                                                        <p className="text-xs opacity-80 mt-1 line-clamp-1">{cow.description}</p>
+                                                        <div className="flex gap-2 mt-2">
+                                                            {seenCount > 0 && (
+                                                                <span className="text-xs bg-cow-accent text-white px-1.5 rounded">Seen x{seenCount}</span>
+                                                            )}
+                                                            {isWishlisted && (
+                                                                <span className="text-xs bg-white text-cow-accent px-1.5 rounded border border-cow-accent">Wanted</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Spot Button */}
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedCowId(cow.id);
+                                                            setEditingSighting(null);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                        className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-cow-accent hover:bg-orange-50 shadow-sm border border-orange-200"
+                                                    >
+                                                        <i className="ph-fill ph-binoculars text-xl"></i>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* VIEW: COLLECTION */}
+                            {view === 'collection' && (
+                                <div>
+                                    {/* Stats / Badges */}
+                                    <div className="bg-[#fffbfb] p-3 rounded mb-4 border border-dotted border-cow-border">
+                                        <h4 className="text-sm font-bold mb-2 text-center uppercase tracking-widest text-cow-accent">Achievements</h4>
+                                        <div className="flex justify-around">
+                                            <Badge icon="ph-fill ph-trophy" label="Rookie" earned={sightings.length >= 1} />
+                                            <Badge icon="ph-fill ph-globe" label="Explorer" earned={sightings.length >= 5} />
+                                            <Badge icon="ph-fill ph-camera" label="Paparazzi" earned={Object.keys(userPhotos).length > 0} />
+                                        </div>
+                                    </div>
+
+                                    {/* Grid */}
+                                    <div className="grid grid-cols-2 gap-4 pb-20">
+                                        {INITIAL_COWS.filter(c => sightings.some(s => s.cowId === c.id)).map(cow => (
+                                            <div 
+                                                key={cow.id}
+                                                onClick={() => { setSelectedCowId(cow.id); setView('detail'); }}
+                                                className="bg-cow-card rounded-lg retro-shadow p-2 flex flex-col items-center text-center cursor-pointer h-40"
+                                            >
+                                                <div className="w-full h-24 bg-white rounded mb-2 overflow-hidden border border-orange-200">
+                                                    <img src={cow.image} className="w-full h-full object-cover" />
+                                                </div>
+                                                <h3 className="font-bold text-sm leading-tight">{cow.name}</h3>
+                                                <div className="mt-auto">
+                                                    <Stars count={cow.rarity} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {sightings.length === 0 && (
+                                            <div className="col-span-2 text-center py-10 opacity-50">
+                                                <i className="ph ph-cow text-4xl mb-2"></i>
+                                                <p>No cows spotted yet! Go outside!</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* VIEW: DETAIL */}
+                            {view === 'detail' && (() => {
+                                const cow = getCow(selectedCowId);
+                                const cowSightings = sightings.filter(s => s.cowId === cow.id).sort((a,b) => b.timestamp - a.timestamp); // Newest first
+                                const photos = userPhotos[cow.id] || [];
+
+                                return (
+                                    <div className="pb-20">
+                                        {/* Gallery */}
+                                        <div className="flex overflow-x-auto gap-4 py-2 no-scrollbar mb-4 -mx-4 px-4 bg-orange-50/50">
+                                            {/* Add Photo Button */}
+                                            <label className="flex-shrink-0 w-32 h-32 bg-gray-100 rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-gray-300 cursor-pointer text-gray-400">
+                                                <i className="ph ph-plus text-3xl"></i>
+                                                <span className="text-xs mt-1">Add Photo</span>
+                                                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                                            </label>
+
+                                            {/* User Photos (Polaroid Style) */}
+                                            {photos.map((p, i) => (
+                                                <div key={i} className="flex-shrink-0 w-40 polaroid">
+                                                    <div className="w-full h-32 bg-gray-200 overflow-hidden">
+                                                        <img src={p} className="w-full h-full object-cover" />
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Default Image */}
+                                            <div className="flex-shrink-0 w-64 h-48 rounded-lg overflow-hidden retro-shadow border-2 border-white">
+                                                <img src={cow.image} className="w-full h-full object-cover" />
+                                            </div>
+                                        </div>
+
+                                        {/* Info Header */}
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h2 className="text-3xl font-bold text-cow-accent">{cow.name}</h2>
+                                            <button onClick={(e) => toggleWishlist(cow.id, e)} className="text-2xl text-cow-accent">
+                                                {wishlist.includes(cow.id) ? <i className="ph-fill ph-heart"></i> : <i className="ph ph-heart"></i>}
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <Stars count={cow.rarity} />
+                                            <span className="text-xs uppercase font-bold tracking-widest text-orange-400">Rarity</span>
+                                        </div>
+
+                                        {/* Tags */}
+                                        <div className="flex gap-2 mb-4 flex-wrap">
+                                            {cow.tags.map(t => (
+                                                <span key={t} className="px-2 py-1 bg-orange-100 text-cow-text text-xs rounded-full border border-orange-200">{t}</span>
+                                            ))}
+                                        </div>
+
+                                        <p className="text-lg leading-relaxed mb-6 font-serif">{cow.description}</p>
+                                        
+                                        <a href={cow.wikiUrl} target="_blank" className="inline-block text-sm text-cow-accent underline decoration-dotted mb-8">
+                                            Read more on Wikipedia →
+                                        </a>
+
+                                        {/* Sighting History */}
+                                        <h3 className="text-xl font-bold border-b-2 border-dotted border-cow-border pb-2 mb-4">Sighting Log</h3>
+                                        <div className="space-y-3">
+                                            {cowSightings.map((spot, index) => (
+                                                <div key={spot.id} className="bg-white p-3 rounded border border-cow-border flex gap-3 relative">
+                                                    <div className="bg-cow-card w-10 h-10 rounded-full flex items-center justify-center text-cow-text retro-shadow-sm flex-shrink-0">
+                                                        <span className="font-bold text-sm">#{cowSightings.length - index}</span>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="font-bold text-sm">{new Date(spot.timestamp).toLocaleDateString()} <span className="font-normal opacity-70">at {new Date(spot.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></p>
+                                                        {spot.coords && (
+                                                            <a 
+                                                                href={`https://www.google.com/maps/search/?api=1&query=${spot.coords.lat},${spot.coords.lng}`}
+                                                                target="_blank"
+                                                                className="text-xs text-blue-500 hover:underline flex items-center gap-1 mt-1"
+                                                            >
+                                                                <i className="ph-fill ph-map-pin"></i> {spot.locationName || "Map Location"}
+                                                            </a>
+                                                        )}
+                                                        {!spot.coords && <p className="text-xs opacity-50 italic">No location data</p>}
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => { setEditingSighting(spot); setSelectedCowId(cow.id); setIsModalOpen(true); }}
+                                                        className="text-gray-400 hover:text-cow-accent"
+                                                    >
+                                                        <i className="ph-fill ph-pencil-simple"></i>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {cowSightings.length === 0 && (
+                                                <div className="text-center py-4 bg-orange-50 rounded border border-dashed border-orange-200">
+                                                    <p className="text-sm opacity-60">You haven't seen this cow yet!</p>
+                                                    <button 
+                                                        onClick={() => { setEditingSighting(null); setSelectedCowId(cow.id); setIsModalOpen(true); }}
+                                                        className="mt-2 text-cow-accent font-bold text-sm hover:underline"
+                                                    >
+                                                        Log a sighting now
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                        </div>
+
+                        {/* BOTTOM NAV */}
+                        <div className="h-16 bg-[#fad17f] flex items-center justify-around border-t-4 border-dotted border-[#e5bc6e]">
+                            <button onClick={() => setView('spot')} className={`flex flex-col items-center ${view === 'spot' ? 'text-cow-accent scale-110' : 'text-[#813434]/50'}`}>
+                                <i className={`text-2xl ${view === 'spot' ? 'ph-fill ph-binoculars' : 'ph ph-binoculars'}`}></i>
+                                <span className="text-[10px] font-bold uppercase tracking-wide">Spot</span>
+                            </button>
+                            <button onClick={() => setView('collection')} className={`flex flex-col items-center ${view === 'collection' ? 'text-cow-accent scale-110' : 'text-[#813434]/50'}`}>
+                                <i className={`text-2xl ${view === 'collection' ? 'ph-fill ph-cards' : 'ph ph-cards'}`}></i>
+                                <span className="text-[10px] font-bold uppercase tracking-wide">Collection</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* MODAL: ADD/EDIT SPOT */}
+                    {isModalOpen && (
+                        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <SpotModal 
+                                cow={getCow(selectedCowId)} 
+                                existingData={editingSighting}
+                                onClose={() => setIsModalOpen(false)}
+                                onSave={handleSaveSpot}
+                            />
+                        </div>
+                    )}
+
+                </div>
+            );
+        };
+
+        const SpotModal = ({ cow, existingData, onClose, onSave }) => {
+            const [date, setDate] = useState(existingData ? new Date(existingData.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            const [time, setTime] = useState(existingData ? new Date(existingData.timestamp).toTimeString().substring(0,5) : new Date().toTimeString().substring(0,5));
+            const [coords, setCoords] = useState(existingData?.coords || null);
+            const [locName, setLocName] = useState(existingData?.locationName || '');
+            const [isLoadingLoc, setIsLoadingLoc] = useState(false);
+
+            const handleGetLocation = () => {
+                setIsLoadingLoc(true);
+                if ("geolocation" in navigator) {
+                    navigator.geolocation.getCurrentPosition((position) => {
+                        setCoords({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        });
+                        setLocName(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
+                        setIsLoadingLoc(false);
+                    }, (err) => {
+                        alert("Could not get location.");
+                        setIsLoadingLoc(false);
+                    });
+                } else {
+                    alert("Geolocation not supported");
+                    setIsLoadingLoc(false);
+                }
+            };
+
+            const handleSubmit = () => {
+                const combinedDate = new Date(`${date}T${time}`);
+                onSave({
+                    id: existingData?.id,
+                    timestamp: combinedDate.getTime(),
+                    coords,
+                    locationName: locName
+                });
+            };
+
+            return (
+                <div className="bg-cow-bg p-6 rounded-lg w-full max-w-xs retro-shadow border border-cow-border relative">
+                    <button onClick={onClose} className="absolute top-2 right-2 text-2xl text-cow-text hover:text-cow-accent">
+                        <i className="ph ph-x"></i>
+                    </button>
+                    
+                    <h3 className="text-xl font-bold mb-4 text-center">
+                        {existingData ? 'Edit Sighting' : 'I Spotted a Cow!'}
+                    </h3>
+                    
+                    <div className="flex justify-center mb-4">
+                        <div className="w-20 h-20 rounded-full border-4 border-cow-card overflow-hidden">
+                            <img src={cow.image} className="w-full h-full object-cover" />
+                        </div>
+                    </div>
+                    <p className="text-center font-bold text-cow-accent mb-4">{cow.name}</p>
+
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs font-bold uppercase mb-1">Date</label>
+                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 rounded border border-cow-border bg-white" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold uppercase mb-1">Time</label>
+                            <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full p-2 rounded border border-cow-border bg-white" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold uppercase mb-1">Location</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    value={locName} 
+                                    onChange={e => setLocName(e.target.value)}
+                                    placeholder="Near the old barn..." 
+                                    className="flex-1 p-2 rounded border border-cow-border bg-white text-sm" 
+                                />
+                                <button 
+                                    onClick={handleGetLocation} 
+                                    className="bg-blue-100 text-blue-600 p-2 rounded border border-blue-200"
+                                    disabled={isLoadingLoc}
+                                >
+                                    {isLoadingLoc ? <i className="ph ph-spinner animate-spin"></i> : <i className="ph-fill ph-map-pin"></i>}
+                                </button>
+                            </div>
+                            {coords && <p className="text-[10px] mt-1 text-green-600">✓ GPS Pinned</p>}
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handleSubmit} 
+                        className="w-full bg-cow-card hover:bg-orange-300 text-cow-text font-bold py-3 rounded mt-6 retro-shadow-sm transition-transform active:scale-95"
+                    >
+                        Save Spot
+                    </button>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
