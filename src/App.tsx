@@ -3,8 +3,9 @@ import { useCowDex } from './hooks/useCowDex';
 import { CowCard } from './components/CowCard';
 import { CowDetail } from './components/CowDetail';
 import { SpotModal } from './components/SpotModal';
-import type { Sighting } from './types';
-import { Binoculars, LayoutGrid, Search, ArrowUpDown, Trophy, Globe, Camera } from 'lucide-react';
+import { CowIdentifier } from './components/CowIdentifier';
+import type { Sighting, CowBreed, CowPhoto } from './types';
+import { Binoculars, LayoutGrid, Search, ArrowUpDown, Sparkles } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import * as storage from './utils/storage';
@@ -24,7 +25,7 @@ function App() {
     toggleWishlist 
   } = useCowDex();
 
-  const [view, setView] = useState<'spot' | 'collection' | 'detail'>('spot');
+  const [view, setView] = useState<'spot' | 'collection' | 'detail' | 'identify'>('spot');
   const [selectedCowId, setSelectedCowId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortMode, setSortMode] = useState<'name' | 'rarity'>('name');
@@ -81,6 +82,23 @@ function App() {
     };
   }, [sightings, breeds]);
 
+  const handleSelectBreedFromIdentifier = async (breed: CowBreed, photoBlob?: Blob) => {
+    if (photoBlob) {
+      const photo: CowPhoto = {
+        id: Date.now().toString(),
+        cowId: breed.id,
+        blob: photoBlob,
+        isMain: true
+      };
+      await storage.savePhoto(breed.id, photo);
+      refreshPhotos();
+    }
+    setSelectedCowId(breed.id);
+    setEditingSighting(undefined);
+    setIsModalOpen(true);
+    setView('detail'); // Show detail page behind the modal
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white font-bold text-2xl animate-pulse">
@@ -96,24 +114,29 @@ function App() {
       <div className="flex-1 bg-cow-bg overflow-hidden flex flex-col">
         
         {/* HEADER */}
-        <div className="p-4 border-b border-cow-border bg-[#fffbfb] flex justify-between items-center shrink-0">
-          <h1 className="text-2xl text-cow-accent font-bold">
-            {view === 'spot' && 'Cow Spotter'}
-            {view === 'collection' && 'My Collection'}
-            {view === 'detail' && 'Cow Details'}
-          </h1>
-          {view === 'detail' && (
-            <button 
-              onClick={() => setView('spot')} 
-              className="text-cow-text hover:underline text-sm font-bold"
-            >
-              Back
-            </button>
-          )}
-        </div>
+        {view !== 'identify' && (
+          <div className="p-4 border-b border-cow-border bg-[#fffbfb] flex justify-between items-center shrink-0">
+            <h1 className="text-2xl text-cow-accent font-bold">
+              {view === 'spot' && 'Cow Spotter'}
+              {view === 'collection' && 'My Collection'}
+              {view === 'detail' && 'Cow Details'}
+            </h1>
+            {view === 'detail' && (
+              <button 
+                onClick={() => setView('spot')} 
+                className="text-cow-text hover:underline text-sm font-bold"
+              >
+                Back
+              </button>
+            )}
+          </div>
+        )}
 
         {/* CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
+        <div className={cn(
+          "flex-1 overflow-y-auto no-scrollbar",
+          view !== 'identify' && "p-4"
+        )}>
           
           {view === 'spot' && (
             <div className="space-y-4">
@@ -201,6 +224,14 @@ function App() {
             />
           )}
 
+          {view === 'identify' && (
+            <CowIdentifier 
+              breeds={breeds} 
+              onSelectBreed={handleSelectBreedFromIdentifier}
+              onQuit={() => setView('spot')}
+            />
+          )}
+
         </div>
 
         {/* BOTTOM NAV */}
@@ -215,6 +246,18 @@ function App() {
             <Binoculars size={24} className={view === 'spot' ? "fill-cow-accent/20" : ""} />
             <span className="text-[10px] font-bold uppercase tracking-wide">Spot</span>
           </button>
+          
+          <button 
+            onClick={() => setView('identify')} 
+            className={cn(
+              "flex flex-col items-center transition-all",
+              view === 'identify' ? "text-cow-accent scale-110" : "text-cow-text/50"
+            )}
+          >
+            <Sparkles size={24} className={view === 'identify' ? "fill-cow-accent/20" : ""} />
+            <span className="text-[10px] font-bold uppercase tracking-wide">Identify</span>
+          </button>
+
           <button 
             onClick={() => setView('collection')} 
             className={cn(

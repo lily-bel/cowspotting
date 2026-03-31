@@ -4,10 +4,10 @@ export type CowBreed = {
   rarity: number;
   isDairy: boolean;
   isDual: boolean;
-  hump: boolean;
-  mini: boolean;
-  horns: boolean;
-  fluffy: boolean;
+  hump: string; // Changed to string to capture "Slight", "Yes", etc.
+  mini: string;
+  horns: string;
+  fluffy: string;
   special: string;
   hybrid: string;
   mainColor: string;
@@ -15,6 +15,7 @@ export type CowBreed = {
   secondaryColor: string;
   primaryRegion: string;
   specialLocation: string;
+  altName: string;
   tags: string[];
   wikipediaUrl?: string;
   imageUrl?: string;

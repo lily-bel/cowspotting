@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, Trash2, Star, Image as ImageIcon } from 'lucide-react';
+import { X, Check, Trash2, Star } from 'lucide-react';
 import type { CowPhoto } from '../types';
 
 interface PhotoEditorProps {
@@ -17,7 +17,7 @@ export const PhotoEditor: React.FC<PhotoEditorProps> = ({
 }) => {
   const [name, setName] = useState(photo.name || '');
   const [isMain, setIsMain] = useState(photo.isMain || false);
-  const [imgUrl, setImgUrl] = useState<string>(URL.createObjectURL(photo.blob));
+  const [imgUrl] = useState<string>(URL.createObjectURL(photo.blob));
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0, width: 0, height: 0 });
