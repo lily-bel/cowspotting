@@ -18,6 +18,7 @@ export type CowBreed = {
   tags: string[];
   wikipediaUrl?: string;
   imageUrl?: string;
+  localImagePath?: string;
 }
 
 export type Sighting = {

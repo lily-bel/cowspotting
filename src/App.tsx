@@ -31,6 +31,9 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSighting, setEditingSighting] = useState<Sighting | undefined>(undefined);
   const [mainPhotoUrls, setMainPhotoUrls] = useState<Record<string, string>>({});
+  const [photosVersion, setPhotosVersion] = useState(0);
+
+  const refreshPhotos = () => setPhotosVersion(v => v + 1);
 
   useEffect(() => {
     const loadMainPhotos = async () => {
@@ -39,15 +42,15 @@ function App() {
       Object.entries(photos).forEach(([id, blob]) => {
         urls[id] = URL.createObjectURL(blob);
       });
-      setMainPhotoUrls(urls);
+      setMainPhotoUrls(prevUrls => {
+        Object.values(prevUrls).forEach(URL.revokeObjectURL);
+        return urls;
+      });
     };
     if (!loading) {
       loadMainPhotos();
     }
-    return () => {
-      Object.values(mainPhotoUrls).forEach(URL.revokeObjectURL);
-    };
-  }, [loading, sightings]); // Reload when sightings change (might have new photos)
+  }, [loading, sightings, photosVersion]);
 
   const filteredCows = useMemo(() => {
     return breeds
@@ -139,7 +142,7 @@ function App() {
                     key={cow.id}
                     cow={cow}
                     mainPhoto={mainPhotoUrls[cow.id]}
-                    fallbackPhoto={cow.imageUrl}
+                    fallbackPhoto={cow.localImagePath || cow.imageUrl}
                     seenCount={sightings.filter(s => s.cowId === cow.id).length}
                     isWishlisted={wishlist.includes(cow.id)}
                     onClick={() => { setSelectedCowId(cow.id); setView('detail'); }}
@@ -167,8 +170,8 @@ function App() {
                     <div className="w-full aspect-square bg-white rounded mb-2 flex items-center justify-center border border-orange-200 text-3xl overflow-hidden">
                       {mainPhotoUrls[cow.id] ? (
                         <img src={mainPhotoUrls[cow.id]} className="w-full h-full object-cover" alt={cow.name} />
-                      ) : cow.imageUrl ? (
-                        <img src={cow.imageUrl} className="w-full h-full object-cover" alt={cow.name} />
+                      ) : (cow.localImagePath || cow.imageUrl) ? (
+                        <img src={cow.localImagePath || cow.imageUrl} className="w-full h-full object-cover" alt={cow.name} />
                       ) : (
                         '🐄'
                       )}
@@ -194,6 +197,7 @@ function App() {
               onToggleWishlist={() => toggleWishlist(selectedCow.id)}
               onEditSighting={(s) => { setEditingSighting(s); setIsModalOpen(true); }}
               onAddSighting={() => { setEditingSighting(undefined); setIsModalOpen(true); }}
+              onPhotosChange={refreshPhotos}
             />
           )}
 

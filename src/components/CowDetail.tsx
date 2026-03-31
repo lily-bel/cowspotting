@@ -12,6 +12,7 @@ interface CowDetailProps {
   onToggleWishlist: () => void;
   onEditSighting: (sighting: Sighting) => void;
   onAddSighting: () => void;
+  onPhotosChange?: () => void;
 }
 
 export const CowDetail: React.FC<CowDetailProps> = ({
@@ -20,7 +21,8 @@ export const CowDetail: React.FC<CowDetailProps> = ({
   isWishlisted,
   onToggleWishlist,
   onEditSighting,
-  onAddSighting
+  onAddSighting,
+  onPhotosChange
 }) => {
   const [photos, setPhotos] = useState<CowPhoto[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
@@ -60,6 +62,7 @@ export const CowDetail: React.FC<CowDetailProps> = ({
     setPhotos(prev => [newPhoto, ...prev]);
     const url = URL.createObjectURL(file);
     setPhotoUrls(prev => ({ ...prev, [newPhoto.id]: url }));
+    onPhotosChange?.();
   };
 
   const handleUpdatePhoto = async (updatedPhoto: CowPhoto) => {
@@ -80,6 +83,7 @@ export const CowDetail: React.FC<CowDetailProps> = ({
     const newUrl = URL.createObjectURL(updatedPhoto.blob);
     setPhotoUrls(prev => ({ ...prev, [updatedPhoto.id]: newUrl }));
     setEditingPhoto(null);
+    onPhotosChange?.();
   };
 
   const handleDeletePhoto = async (photoId: string) => {
@@ -93,6 +97,7 @@ export const CowDetail: React.FC<CowDetailProps> = ({
       setPhotoUrls(newUrls);
     }
     setEditingPhoto(null);
+    onPhotosChange?.();
   };
 
   return (
@@ -129,8 +134,8 @@ export const CowDetail: React.FC<CowDetailProps> = ({
 
         {/* Default Placeholder / Wikipedia Image */}
         <div className="flex-shrink-0 w-64 h-48 rounded-lg overflow-hidden retro-shadow border-2 border-white bg-white flex items-center justify-center">
-          {cow.imageUrl ? (
-            <img src={cow.imageUrl} className="w-full h-full object-cover" alt={cow.name} />
+          {(cow.localImagePath || cow.imageUrl) ? (
+            <img src={cow.localImagePath || cow.imageUrl} className="w-full h-full object-cover" alt={cow.name} />
           ) : (
             <span className="text-6xl">🐄</span>
           )}

@@ -38,7 +38,7 @@ export const CowCard: React.FC<CowCardProps> = ({
     <div 
       onClick={onClick}
       className={`
-        ${getRarityColor(cow.rarity)} rounded-md retro-shadow p-3 flex items-center gap-3 cursor-pointer transition-transform active:scale-95
+        relative ${getRarityColor(cow.rarity)} rounded-md retro-shadow p-3 flex items-start gap-3 cursor-pointer transition-transform active:scale-95
         ${seenCount > 0 ? 'border-2 border-cow-accent' : ''}
       `}
     >
@@ -55,11 +55,9 @@ export const CowCard: React.FC<CowCardProps> = ({
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-start gap-1">
-          <h3 className="font-bold text-lg leading-tight truncate">{cow.name}</h3>
-          <div className="flex-shrink-0">
-            <Stars count={cow.rarity} />
-          </div>
+        <h3 className="font-bold text-lg leading-tight">{cow.name}</h3>
+        <div className="flex items-center mt-0.5">
+          <Stars count={cow.rarity} size={12} />
         </div>
         <div className="flex flex-wrap gap-1 mt-1">
           {cow.tags.slice(0, 3).map(tag => (
@@ -83,7 +81,7 @@ export const CowCard: React.FC<CowCardProps> = ({
       {/* Spot Button */}
       <button 
         onClick={onSpot}
-        className="w-10 h-10 bg-white rounded-full flex-shrink-0 flex items-center justify-center text-cow-accent hover:bg-orange-50 shadow-sm border border-orange-200"
+        className="absolute bottom-3 right-3 w-10 h-10 bg-white rounded-full flex items-center justify-center text-cow-accent hover:bg-orange-50 shadow-sm border border-orange-200"
       >
         <Binoculars size={20} />
       </button>
