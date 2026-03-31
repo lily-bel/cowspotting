@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-cow-bg: #fff6f6;
+  --color-cow-border: #ffc3c3;
+  --color-cow-card: #fad17f;
+  --color-cow-text: #813434;
+  --color-cow-accent: #9e4c4c;
+  --color-cow-star: #FF9E55;
+  --color-rarity-1: #fad17f;
+  --color-rarity-2: #ffdfba;
+  --color-rarity-3: #ffb3ba;
+  --color-rarity-4: #fbc4ab;
+  --color-rarity-5: #e2ccff;
+  --color-rarity-6: #b28dff;
+  --font-fredoka: "Fredoka", sans-serif;
+  --font-lora: "Lora", serif;
+}
+
+body {
+  background-color: #436a7b;
+  background-image: radial-gradient(#567f91 1px, transparent 1px);
+  background-size: 20px 20px;
+  font-family: 'Lora', serif;
+  color: #813434;
+}
+
+h1, h2, h3, h4, button {
+  font-family: 'Fredoka', sans-serif;
+}
+
+.retro-shadow {
+  box-shadow: 4px 4px 0px 1px rgba(0,0,0,0.25);
+}
+
+.retro-shadow-sm {
+  box-shadow: 2px 2px 0px 1px rgba(0,0,0,0.25);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.polaroid {
+  background: white;
+  padding: 8px 8px 24px 8px;
+  box-shadow: 1px 2px 4px rgba(0,0,0,0.2);
+  transform: rotate(-2deg);
+}
+.polaroid:nth-child(even) {
+  transform: rotate(1deg);
+}
