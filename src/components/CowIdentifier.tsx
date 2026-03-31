@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Camera, Sparkles, X, ChevronRight, ChevronLeft, Check, RotateCcw } from 'lucide-react';
+import { Camera, Sparkles, X, ChevronRight, ChevronLeft, RotateCcw } from 'lucide-react';
 import type { CowBreed } from '../types';
-import { clsx } from 'clsx';
+import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { US_STATES, isStateInRegion, isColorMatch, isPatternMatch } from '../utils/cowLogic';
 
-function cn(...inputs: any[]) {
+function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -30,9 +31,12 @@ type QuestionKey =
 interface Question {
   id: QuestionKey;
   text: string;
-  column: keyof CowBreed | 'dairy' | 'hybrid';
-  type: 'choice' | 'boolean';
+  column: keyof CowBreed | 'isDairy' | 'hybrid';
+  type: 'choice';
+  extraOptions?: string[]; // "No", "Don't Know"
+  staticOptions?: string[]; // For Dairy/Hybrid/States
   skipIf?: (answers: Partial<Record<QuestionKey, string>>) => boolean;
+  ignoreSlash?: boolean;
 }
 
 const QUESTIONS: Question[] = [
@@ -45,22 +49,23 @@ const QUESTIONS: Question[] = [
     type: 'choice',
     skipIf: (answers) => answers.pattern === 'solid'
   },
-  { id: 'hump', text: "Does the cow have a notable hump above her neck?", column: 'hump', type: 'choice' },
-  { id: 'fluffy', text: "Is the cow notably fluffy?", column: 'fluffy', type: 'choice' },
-  { id: 'horns', text: "Does the cow have unique horns?", column: 'horns', type: 'choice' },
-  { id: 'special', text: "Does the cow have any of these special characteristics?", column: 'special', type: 'choice' },
-  { id: 'region', text: "What region was this cow found in?", column: 'primaryRegion', type: 'choice' },
-  { id: 'specialLocation', text: "Was the cow found in a special location?", column: 'specialLocation', type: 'choice' },
-  { id: 'dairy', text: "Was this cow at a dairy farm?", column: 'dairy', type: 'boolean' },
-  { id: 'hybrid', text: "Is this cow a hybrid cow?", column: 'hybrid', type: 'boolean' },
+  { id: 'hump', text: "Does the cow have a notable hump above her neck?", column: 'hump', type: 'choice', extraOptions: ['No'] },
+  { id: 'fluffy', text: "Is the cow notably fluffy?", column: 'fluffy', type: 'choice', extraOptions: ['No'] },
+  { id: 'horns', text: "Does the cow have unique horns?", column: 'horns', type: 'choice', extraOptions: ['No'] },
+  { id: 'special', text: "Does the cow have any of these special characteristics?", column: 'special', type: 'choice', extraOptions: ['No'] },
+  { id: 'region', text: "In which US state was this cow found?", column: 'primaryRegion', type: 'choice', staticOptions: US_STATES, extraOptions: ["Don't Know"] },
+  { id: 'specialLocation', text: "Was the cow found in a special location?", column: 'specialLocation', type: 'choice', extraOptions: ['No'], ignoreSlash: true },
+  { id: 'dairy', text: "Was this cow at a dairy farm?", column: 'isDairy', type: 'choice', staticOptions: ['Yes', 'No', "Don't Know"] },
+  { id: 'hybrid', text: "Is this cow a hybrid cow?", column: 'hybrid', type: 'choice', staticOptions: ['Yes', 'No', "Don't Know"] },
 ];
 
 export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBreed, onQuit }) => {
-  const [step, setStep] = useState<number>(-1); // -1 is the pre-quiz page
+  const [step, setStep] = useState<number>(-1); 
   const [answers, setAnswers] = useState<Partial<Record<QuestionKey, string>>>({});
   const [uploadedPhoto, setUploadedPhoto] = useState<Blob | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (uploadedPhoto) {
@@ -70,6 +75,12 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
     }
   }, [uploadedPhoto]);
 
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = 0;
+    }
+  }, [step]);
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -77,32 +88,68 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
     }
   };
 
-  // Extract unique options for each question from the breeds data
   const optionsMap = useMemo(() => {
     const map: Record<string, string[]> = {};
-    
+    const counts: Record<string, Record<string, number>> = {};
+
     QUESTIONS.forEach(q => {
-      if (q.type === 'choice') {
-        const options = new Set<string>();
-        breeds.forEach(breed => {
-          const val = breed[q.column as keyof CowBreed];
-          if (typeof val === 'string' && val) {
-            // Split by comma or slash
-            val.split(/[,/]/).forEach(s => {
-              const trimmed = s.trim().toLowerCase();
-              if (trimmed && trimmed !== 'none' && trimmed !== 'no') {
-                map[q.id] = map[q.id] || [];
-                // Capitalize for display
-                const display = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-                options.add(display);
+      if (q.staticOptions) {
+        map[q.id] = q.staticOptions;
+        return;
+      }
+
+      counts[q.id] = {};
+      breeds.forEach(breed => {
+        const val = breed[q.column as keyof CowBreed];
+        if (typeof val === 'string' && val) {
+          const splitRegex = q.ignoreSlash ? /[,]/ : /[,/]/;
+          val.split(splitRegex).forEach(s => {
+            let trimmed = s.trim();
+            if (trimmed && trimmed.toLowerCase() !== 'none' && trimmed.toLowerCase() !== 'no' && trimmed.toLowerCase() !== 'various') {
+              if (trimmed.toLowerCase().includes('specialty farm')) {
+                trimmed = 'Specialty Farm';
               }
-            });
-          }
+              counts[q.id][trimmed] = (counts[q.id][trimmed] || 0) + 1;
+            }
+          });
+        }
+      });
+
+      let sortedTraitOptions = Object.keys(counts[q.id]).sort((a, b) => {
+        const freqDiff = counts[q.id][b] - counts[q.id][a];
+        if (freqDiff !== 0) return freqDiff;
+        return a.localeCompare(b);
+      });
+
+      // NO OVERRIDE: For Hump, Fluffy, Horns, "No" goes AFTER the traits
+      if (q.id === 'hump') {
+        const order = ['Yes', 'Slight'];
+        sortedTraitOptions = sortedTraitOptions.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+        map[q.id] = [...sortedTraitOptions, 'No'];
+      } else if (q.id === 'fluffy') {
+        const order = ['Very Fluffy', 'Fluffy Head', 'Thick Coat'];
+        sortedTraitOptions = sortedTraitOptions.sort((a, b) => {
+          const ai = order.indexOf(a);
+          const bi = order.indexOf(b);
+          if (ai !== -1 && bi !== -1) return ai - bi;
+          if (ai !== -1) return -1;
+          if (bi !== -1) return 1;
+          return 0;
         });
-        map[q.id] = Array.from(options).sort();
+        map[q.id] = [...sortedTraitOptions, 'No'];
+      } else if (q.id === 'horns') {
+        map[q.id] = ['Big', 'No'];
+      } else {
+        // DEFAULT: No at top, traits after
+        const topExtras = (q.extraOptions || []).filter(o => o === 'No');
+        map[q.id] = [...topExtras, ...sortedTraitOptions];
+      }
+
+      // Consistently put "Don't Know" at the absolute bottom
+      if (q.extraOptions?.includes("Don't Know")) {
+        map[q.id] = [...map[q.id].filter(o => o !== "Don't Know"), "Don't Know"];
       }
     });
-    
     return map;
   }, [breeds]);
 
@@ -134,48 +181,96 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
     if (step < QUESTIONS.length) return [];
 
     const scores = breeds.map(breed => {
-      let score = 0;
+      let totalWeightedScore = 0;
+      let totalPossibleWeight = 0;
+
       QUESTIONS.forEach(q => {
         const answer = answers[q.id];
-        if (!answer) return;
+        if (!answer || answer === "Don't Know") return;
 
-        if (q.type === 'boolean') {
-          const isTrue = answer === 'Yes';
+        // Determine Weight
+        let weight = 1.0;
+        if (q.id === 'hump' || q.id === 'horns') {
+          weight = 2.0;
+        } else if (q.id === 'fluffy') {
+          weight = answer.toLowerCase() === 'thick coat' ? 1.0 : 2.0;
+        } else if (q.id === 'pattern' || q.id === 'dairy') {
+          weight = 1.5;
+        }
+
+        totalPossibleWeight += weight;
+
+        const ansLower = answer.toLowerCase();
+        let matchScore = 0;
+
+        // Handle State dropdown scoring
+        if (q.id === 'region' && answer !== "Don't Know") {
+          matchScore = isStateInRegion(answer, breed.primaryRegion || '');
+        } 
+        // Handle static options (Dairy/Hybrid)
+        else if (q.staticOptions && (q.id === 'dairy' || q.id === 'hybrid')) {
+          const isYes = answer === 'Yes';
           if (q.id === 'dairy') {
-            if (isTrue && (breed.isDairy || breed.isDual)) score += 1;
-            if (!isTrue && (!breed.isDairy && !breed.isDual)) score += 0.5;
+            if (isYes && (breed.isDairy || breed.isDual)) matchScore = 1;
+            else if (!isYes && (!breed.isDairy && !breed.isDual)) matchScore = 1;
           } else if (q.id === 'hybrid') {
-            if (isTrue && breed.hybrid) score += 1;
-            if (!isTrue && !breed.hybrid) score += 1;
+            if (isYes && breed.hybrid) matchScore = 1;
+            else if (!isYes && !breed.hybrid) matchScore = 1;
           }
-        } else {
-          const val = breed[q.column as keyof CowBreed] as string;
-          if (val) {
-            const vals = val.toLowerCase().split(/[,/]/).map(s => s.trim());
-            if (vals.includes(answer.toLowerCase())) {
-              score += 1;
+        }
+        else {
+          const val = (breed[q.column as keyof CowBreed] as string || '').toLowerCase();
+          const splitRegex = q.ignoreSlash ? /[,]/ : /[,/]/;
+          const vals = val.split(splitRegex).map(s => s.trim()).map(v => v.includes('specialty farm') ? 'specialty farm' : v);
+
+          if (vals.includes(ansLower) || (ansLower === 'no' && (val === '' || val === 'none'))) {
+            matchScore = 1;
+          } else if (ansLower !== 'no') {
+            if (q.id === 'mainColor' || q.id === 'secondaryColor') {
+              matchScore = isColorMatch(ansLower, breed);
+            }
+            else if (q.id === 'hump') {
+              if (ansLower === 'slight' && vals.includes('yes')) matchScore = 0.5;
+              if (ansLower === 'yes' && vals.includes('slight')) matchScore = 0.5;
+            }
+            else if (q.id === 'fluffy') {
+              if (ansLower === 'no' && vals.includes('thick coat')) matchScore = 0.5;
+            }
+            else if (q.id === 'pattern') {
+              matchScore = isPatternMatch(ansLower, breed.pattern || '');
+            }
+            else if (q.id === 'specialLocation') {
+              if (ansLower === 'specialty farm' && vals.includes('hobby/show')) matchScore = 0.5;
+              if (ansLower === 'hobby/show' && vals.includes('specialty farm')) matchScore = 0.5;
             }
           }
         }
+
+        totalWeightedScore += (matchScore * weight);
       });
-      return { breed, score };
+
+      const rarityBonus = (7 - breed.rarity) * 0.02;
+      const finalScore = totalPossibleWeight > 0 
+        ? (totalWeightedScore / totalPossibleWeight) * 10 
+        : 0;
+
+      return { breed, score: finalScore + rarityBonus };
     });
 
     return scores
-      .sort((a, b) => b.score - a.score || b.breed.rarity - a.breed.rarity)
-      .slice(0, 5);
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 15);
   }, [breeds, answers, step]);
 
   return (
     <div className="flex flex-col h-full bg-[#1a1a2e] text-white overflow-hidden relative">
-      {/* Quiz Area */}
       <div className={cn(
-        "bg-white text-cow-text flex flex-col shadow-[0_10px_40px_rgba(0,0,0,0.3)] transition-all duration-700 overflow-hidden",
-        step === -1 ? "h-0" : "flex-1 rounded-b-3xl p-6"
+        "bg-white text-cow-text flex flex-col shadow-[0_10px_40px_rgba(0,0,0,0.3)] transition-all duration-700 overflow-hidden shrink-0",
+        step === -1 ? "h-0" : "flex-1 rounded-b-3xl"
       )}>
         {step >= 0 && step < QUESTIONS.length ? (
-          <>
-            <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col h-full p-6">
+            <div className="flex justify-between items-center mb-6 shrink-0">
               <button onClick={prevStep} className="p-2 -ml-2 text-cow-accent disabled:opacity-30" disabled={step === 0}>
                 <ChevronLeft size={24} />
               </button>
@@ -195,64 +290,38 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
               </button>
             </div>
 
-            <h3 className="text-xl font-bold mb-6 text-center leading-tight">
+            <h3 className="text-xl font-bold mb-6 text-center leading-tight shrink-0">
               {currentQuestion?.text}
             </h3>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 pb-6">
-              {currentQuestion?.type === 'choice' ? (
-                <>
-                  {optionsMap[currentQuestion.id]?.map(opt => (
-                    <button
-                      key={opt}
-                      onClick={() => handleAnswer(opt)}
-                      className="w-full text-left p-4 rounded-xl border-2 border-orange-100 bg-orange-50/30 hover:bg-orange-50 hover:border-cow-accent transition-all font-bold flex justify-between items-center group"
-                    >
-                      {opt}
-                      <ChevronRight size={18} className="text-cow-accent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => handleAnswer('None/Other')}
-                    className="w-full text-left p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 text-gray-400 hover:text-gray-500 transition-all font-bold"
-                  >
-                    None / Other
-                  </button>
-                </>
-              ) : (
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => handleAnswer('Yes')}
-                    className="flex-1 py-12 rounded-2xl border-2 border-orange-100 bg-green-50/30 hover:bg-green-50 hover:border-green-500 transition-all font-bold text-xl flex flex-col items-center gap-3"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                      <Check size={24} strokeWidth={3} />
-                    </div>
-                    Yes
-                  </button>
-                  <button
-                    onClick={() => handleAnswer('No')}
-                    className="flex-1 py-12 rounded-2xl border-2 border-orange-100 bg-red-50/30 hover:bg-red-50 hover:border-red-500 transition-all font-bold text-xl flex flex-col items-center gap-3"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-                      <X size={24} strokeWidth={3} />
-                    </div>
-                    No
-                  </button>
-                </div>
-              )}
+            <div ref={scrollAreaRef} className="flex-1 overflow-y-auto no-scrollbar space-y-3 pb-6">
+              {optionsMap[currentQuestion!.id]?.map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => handleAnswer(opt)}
+                  className={cn(
+                    "w-full text-left p-4 rounded-xl border-2 transition-all font-bold flex justify-between items-center group",
+                    (opt === "Don't Know") 
+                      ? "border-dashed border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500" 
+                      : "border-orange-100 bg-orange-50/30 hover:bg-orange-50 hover:border-cow-accent"
+                  )}
+                >
+                  {opt}
+                  <ChevronRight size={18} className="text-cow-accent opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
+              ))}
             </div>
-          </>
+          </div>
         ) : step >= QUESTIONS.length ? (
-          <div className="flex-1 flex flex-col">
-             <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col h-full p-6">
+             <div className="flex justify-between items-center mb-6 shrink-0">
               <h3 className="text-xl font-bold text-cow-accent">Predictions</h3>
               <button onClick={() => { setStep(-1); setAnswers({}); }} className="flex items-center gap-1 text-sm font-bold text-cow-text opacity-50">
                 <RotateCcw size={16} /> Reset
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-6">
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-6 min-h-0">
               {topCows.map(({ breed, score }) => (
                 <div 
                   key={breed.id}
@@ -272,7 +341,7 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
                       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-yellow-400" 
-                          style={{ width: `${(score / QUESTIONS.length) * 100}%` }}
+                          style={{ width: `${Math.min(100, (score / 10) * 100)}%` }}
                         />
                       </div>
                       <span className="text-[10px] font-bold text-gray-400">Match</span>
@@ -284,7 +353,7 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
             
             <button 
               onClick={onQuit}
-              className="w-full py-4 bg-cow-accent text-white rounded-xl font-bold shadow-lg active:scale-95 transition-all mt-auto"
+              className="w-full py-4 bg-cow-accent text-white rounded-xl font-bold shadow-lg active:scale-95 transition-all mt-4 shrink-0"
             >
               Done Identifying
             </button>
@@ -292,10 +361,9 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
         ) : null}
       </div>
 
-      {/* Background/Crystal Ball Area */}
       <div className={cn(
         "relative transition-all duration-700 flex items-center justify-center overflow-hidden",
-        step === -1 ? "flex-1" : "h-1/3"
+        step === -1 ? "flex-1" : "h-[30vh]"
       )}>
         <CrystalBall 
           photoUrl={photoUrl} 
@@ -305,9 +373,8 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
         
         {step === -1 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center z-10">
-            <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">Breed Seer</h2>
-            <p className="text-blue-200 mb-8 max-w-xs">Look into the ball to identify your spotted cow...</p>
-            
+            <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">Cow Scrying</h2>
+            <p className="text-blue-200 mb-8 max-w-xs">Describe a cow to find likely breeds</p>            
             <div className="flex flex-col gap-3 w-full max-w-xs">
               <button 
                 onClick={() => fileInputRef.current?.click()}
@@ -345,14 +412,11 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
 };
 
 const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds: CowBreed[] }> = ({ photoUrl, isSmall, breeds }) => {
-  const [orbitCows, setOrbitCows] = useState<Array<{ id: string, img: string, angle: number, speed: number, distance: number, size: number }>>([]);
+  const [orbitCows, setOrbitCows] = useState<Array<{ id: string, img: string, angle: number, speed: number, distance: number, size: number, yOffset: number, ySpeed: number }>>([]);
   
   useEffect(() => {
-    // Generate random cows for orbit
     const count = 4;
     const items = [];
-    
-    // Weight by rarity: 1 is common (60% weight), 6 is rare (5% weight)
     const weightedBreeds = breeds.flatMap(b => {
       const weight = Math.max(1, 7 - b.rarity);
       return Array(weight).fill(b);
@@ -364,50 +428,50 @@ const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds:
         id: breed.id + Math.random(),
         img: breed.localImagePath || breed.imageUrl || '',
         angle: (i / count) * Math.PI * 2,
-        speed: 0.01 + Math.random() * 0.01,
+        speed: 0.005 + Math.random() * 0.01,
         distance: 120 + Math.random() * 40,
-        size: 40 + Math.random() * 20
+        size: 40 + Math.random() * 20,
+        yOffset: Math.random() * Math.PI * 2,
+        ySpeed: 0.01 + Math.random() * 0.02
       });
     }
     setOrbitCows(items);
   }, [breeds]);
 
-  // Animation loop for orbit
   const requestRef = useRef<number>(null);
-  const [angles, setAngles] = useState<number[]>([]);
+  const [frame, setFrame] = useState(0);
 
   const animate = () => {
-    setAngles(prev => orbitCows.map((c, i) => (prev[i] || c.angle) + c.speed));
+    setFrame(f => f + 1);
     requestRef.current = requestAnimationFrame(animate);
   };
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(requestRef.current!);
-  }, [orbitCows]);
+  }, []);
 
   return (
     <div className={cn(
       "relative transition-all duration-700",
       isSmall ? "scale-50 translate-y-4" : "scale-100"
     )}>
-      {/* Glow */}
       <div className="absolute inset-0 bg-blue-500/20 blur-[60px] rounded-full" />
       
-      {/* Orbiting Cows */}
-      {orbitCows.map((cow, i) => {
-        const angle = angles[i] || cow.angle;
+      {orbitCows.map((cow) => {
+        const angle = cow.angle + frame * cow.speed;
         const x = Math.cos(angle) * cow.distance;
-        const z = Math.sin(angle); // -1 to 1 for depth
-        const scale = 0.7 + (z + 1) * 0.3; // z is -1 (back) to 1 (front)
-        const opacity = z < -0.5 ? 0 : (z + 0.5) * 2; // fade out when going behind
+        const z = Math.sin(angle); 
+        const yVariation = Math.sin(cow.yOffset + frame * cow.ySpeed) * 20;
+        const scale = 0.7 + (z + 1) * 0.3; 
+        const opacity = z < -0.5 ? 0 : (z + 0.5) * 2; 
         
         return (
           <div 
             key={cow.id}
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-opacity duration-300"
             style={{ 
-              transform: `translate(calc(-50% + ${x}px), -50%) scale(${scale})`,
+              transform: `translate(calc(-50% + ${x}px), calc(-50% + ${yVariation}px)) scale(${scale})`,
               zIndex: z > 0 ? 20 : 0,
               opacity: Math.min(1, opacity)
             }}
@@ -419,7 +483,6 @@ const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds:
         );
       })}
 
-      {/* The Ball */}
       <div className="relative w-48 h-48 rounded-full overflow-hidden shadow-[inset_0_0_50px_rgba(255,255,255,0.5),0_0_30px_rgba(66,135,245,0.5)] bg-gradient-to-br from-blue-400/20 to-purple-600/30 backdrop-blur-sm flex items-center justify-center border border-white/30">
         <img 
           src="/images/ball.png" 
@@ -427,14 +490,12 @@ const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds:
           alt="crystal ball" 
         />
         
-        {/* Uploaded Photo Overlay */}
         {photoUrl && (
           <div className="absolute inset-4 rounded-full overflow-hidden border-2 border-white/30 shadow-inner">
             <img src={photoUrl} className="w-full h-full object-cover" alt="uploaded" />
           </div>
         )}
 
-        {/* Inner Glow/Sparkle */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.4)_0%,transparent_50%)]" />
       </div>
     </div>

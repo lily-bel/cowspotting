@@ -59,9 +59,9 @@ export const CowCard: React.FC<CowCardProps> = ({
         <div className="flex items-center mt-0.5">
           <Stars count={cow.rarity} size={12} />
         </div>
-        <div className="flex flex-wrap gap-1 mt-1">
-          {cow.tags.slice(0, 3).map(tag => (
-            <span key={tag} className="text-[10px] bg-white/50 px-1 rounded border border-orange-200 text-cow-text">
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {cow.tags.map(tag => (
+            <span key={tag} className="text-[9px] font-bold uppercase tracking-wider bg-white/60 px-1.5 py-0.5 rounded-sm border border-cow-accent/10 text-cow-text/80 shadow-sm">
               {tag}
             </span>
           ))}
