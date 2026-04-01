@@ -51,7 +51,7 @@ export const parseCowsCsv = async (): Promise<CowBreed[]> => {
             altName: row['Alt Name'] || '',
             tags: Array.from(new Set(tags)).filter(Boolean),
             wikipediaUrl: row['Wikipedia URL'] || '',
-            localImagePath: row['Local Image Path'] || '',
+            localImagePath: row['Image URL'] || '',
           };
         });
         resolve(breeds);

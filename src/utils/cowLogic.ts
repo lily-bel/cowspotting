@@ -78,6 +78,22 @@ export const REGION_MAPPING: Record<string, { definite: string[], probable: stri
   }
 };
 
+export const COLOR_GROUPS: Record<string, { label: string, hex: string, members: string[] }> = {
+  'black': { label: 'Black', hex: '#262626', members: ['black'] },
+  'red': { label: 'Red', hex: '#a63426', members: ['red', 'dark red', 'cherry red', 'deep red', 'golden-red', 'light red'] },
+  'brown': { label: 'Brown/Tan', hex: '#916d4e', members: ['brown', 'dark brown', 'light brown', 'fawn', 'dun', 'tan', 'chestnut brown', 'golden-brown'] },
+  'white': { label: 'White/Cream', hex: '#f5eee6', members: ['white', 'cream', 'blonde'] },
+  'grey': { label: 'Grey/Blue', hex: '#8a939e', members: ['grey', 'dark grey', 'light grey', 'silver-grey', 'mouse-grey', 'blue'] },
+  'yellow': { label: 'Yellow/Golden', hex: '#e0b35e', members: ['yellow', 'golden'] },
+};
+
+export const COLOR_GROUP_MAP: Record<string, string> = Object.entries(COLOR_GROUPS).reduce((acc, [_, group]) => {
+  group.members.forEach(m => {
+    acc[m] = group.label;
+  });
+  return acc;
+}, {} as Record<string, string>);
+
 export const COLOR_CLOSENESS: Record<string, string[]> = {
   'black': ['dark grey', 'dark brown'],
   'grey': ['silver-grey', 'mouse-grey', 'light grey', 'dark grey', 'blue'],
@@ -136,12 +152,22 @@ export const isColorMatch = (color: string, breed: CowBreed): number => {
   const mainColor = breed.mainColor.toLowerCase();
   const secondaryColor = breed.secondaryColor.toLowerCase();
 
-  const colors = [mainColor, ...secondaryColor.split(/[,/]/).map(s => s.trim())].filter(Boolean);
+  const breedColors = [mainColor, ...secondaryColor.split(/[,/]/).map(s => s.trim())].filter(Boolean);
   
-  if (colors.includes(searchColor)) return 1;
+  // If searchColor is a group label (e.g., "Brown/Tan")
+  const group = Object.values(COLOR_GROUPS).find(g => g.label.toLowerCase() === searchColor);
+  if (group) {
+    if (breedColors.some(bc => group.members.includes(bc))) return 1;
+    
+    // Check closeness for any member of the group
+    if (breedColors.some(bc => group.members.some(m => (COLOR_CLOSENESS[m] || []).includes(bc)))) return 0.5;
+    return 0;
+  }
+
+  if (breedColors.includes(searchColor)) return 1;
   
   const closeColors = COLOR_CLOSENESS[searchColor] || [];
-  if (colors.some(c => closeColors.includes(c))) return 0.5;
+  if (breedColors.some(c => closeColors.includes(c))) return 0.5;
   
   return 0;
 };

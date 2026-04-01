@@ -3,7 +3,7 @@ import { Camera, Sparkles, X, ChevronRight, ChevronLeft, RotateCcw } from 'lucid
 import type { CowBreed } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { US_STATES, isStateInRegion, isColorMatch, isPatternMatch } from '../utils/cowLogic';
+import { US_STATES, isStateInRegion, isColorMatch, isPatternMatch, COLOR_GROUPS, COLOR_GROUP_MAP } from '../utils/cowLogic';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -11,6 +11,7 @@ function cn(...inputs: ClassValue[]) {
 
 interface CowIdentifierProps {
   breeds: CowBreed[];
+  mainPhotoUrls?: Record<string, string>;
   onSelectBreed: (breed: CowBreed, photoBlob?: Blob) => void;
   onQuit: () => void;
 }
@@ -60,45 +61,20 @@ const QUESTIONS: Question[] = [
 
 const OPTION_IMAGES: Record<string, string> = {
   // Patterns
-  'solid': '/images/breeds/black-angus.jpg',
-  'spotted': '/images/breeds/holstein-friesian.jpg',
-  'points': '/images/breeds/british-white.jpg',
-  'belted': '/images/breeds/belted-galloway.jpg',
-  'white face': '/images/breeds/hereford.jpg',
-  'white face + neck': '/images/breeds/black-baldy.jpg',
-  'ombre': '/images/breeds/brahman.jpg',
-  'lineback': '/images/breeds/randall-lineback.jpg',
-  'roan': '/images/breeds/shorthorn.jpg',
-  'speckled': '/images/breeds/speckle-park.JPG',
-  'brindle': '/images/breeds/tiger-stripe.jpg',
-
-  // Colors
-  'black': '/images/breeds/black-angus.jpg',
-  'red': '/images/breeds/red-angus.jpg',
-  'white': '/images/breeds/charolais.jpg',
-  'grey': '/images/breeds/gascon.JPG',
-  'dark grey': '/images/breeds/bazadais.jpg',
-  'light grey': '/images/breeds/nelore.jpg',
-  'fawn': '/images/breeds/jersey.jpg',
-  'brown': '/images/breeds/brown-swiss.jpg',
-  'blue': '/images/breeds/belgian-blue.jpg',
-  'dun': '/images/breeds/dexter.JPG',
-  'blonde': '/images/breeds/blonde-d-aquitaine.jpg',
-  'yellow': '/images/breeds/simmental.jpg',
-  'golden': '/images/breeds/gelbvieh.jpg',
-  'mouse-grey': '/images/breeds/smokey.jpg',
-  'cherry red': '/images/breeds/santa-gertrudis.jpg',
-  'deep red': '/images/breeds/red-poll.JPG',
-  'chestnut brown': '/images/breeds/pinzgauer.JPG',
-  'tan': '/images/breeds/jersey.jpg',
-  'light brown': '/images/breeds/jersey.jpg',
-  'dark brown': '/images/breeds/akaushi.jpg',
-  'silver-grey': '/images/breeds/murray-grey.JPG',
-  'cream': '/images/breeds/charbray.jpg',
-  'golden-brown': '/images/breeds/parthenais.jpg',
+  'solid': '/images/solid.jpg',
+  'spotted': '/images/spotted.jpg',
+  'points': '/images/points.jpg',
+  'belted': '/images/belted.jpg',
+  'white face': '/images/white face.jpg',
+  'white face + neck': '/images/white face + neck.jpg',
+  'ombre': '/images/ombre.jpg',
+  'lineback': '/images/lineback.jpg',
+  'roan': '/images/roan.jpg',
+  'speckled': '/images/speckled.jpg',
+  'brindle': '/images/tiger stripe.jpg',
 };
 
-export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBreed, onQuit }) => {
+export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, mainPhotoUrls, onSelectBreed, onQuit }) => {
   const [step, setStep] = useState<number>(-1); 
   const [answers, setAnswers] = useState<Partial<Record<QuestionKey, string>>>({});
   const [uploadedPhoto, setUploadedPhoto] = useState<Blob | null>(null);
@@ -145,6 +121,13 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
           val.split(splitRegex).forEach(s => {
             let trimmed = s.trim();
             if (trimmed && trimmed.toLowerCase() !== 'none' && trimmed.toLowerCase() !== 'no' && trimmed.toLowerCase() !== 'various') {
+              if (q.id === 'mainColor' || q.id === 'secondaryColor') {
+                const groupLabel = COLOR_GROUP_MAP[trimmed.toLowerCase()];
+                if (groupLabel) {
+                  trimmed = groupLabel;
+                }
+              }
+
               if (trimmed.toLowerCase().includes('specialty farm')) {
                 trimmed = 'Specialty Farm';
               }
@@ -155,7 +138,9 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
       });
 
       let sortedTraitOptions = Object.keys(counts[q.id]).sort((a, b) => {
-        const freqDiff = counts[q.id][b] - counts[q.id][a];
+        // For secondary color, use the frequency counts of the main color to determine order
+        const countId = (q.id === 'secondaryColor' && counts['mainColor']) ? 'mainColor' : q.id;
+        const freqDiff = (counts[countId][b] || 0) - (counts[countId][a] || 0);
         if (freqDiff !== 0) return freqDiff;
         return a.localeCompare(b);
       });
@@ -338,7 +323,10 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
 
             <div ref={scrollAreaRef} className="flex-1 overflow-y-auto no-scrollbar space-y-3 pb-6">
               {optionsMap[currentQuestion!.id]?.map(opt => {
-                const showImage = (currentQuestion!.id === 'pattern' || currentQuestion!.id === 'mainColor' || currentQuestion!.id === 'secondaryColor') && OPTION_IMAGES[opt.toLowerCase()];
+                const isColor = currentQuestion!.id === 'mainColor' || currentQuestion!.id === 'secondaryColor';
+                const colorGroup = isColor ? Object.values(COLOR_GROUPS).find(g => g.label === opt) : null;
+                const showImage = (currentQuestion!.id === 'pattern') && OPTION_IMAGES[opt.toLowerCase()];
+                
                 return (
                   <button
                     key={opt}
@@ -351,9 +339,15 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
                     )}
                   >
                     {showImage && (
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-orange-100/50">
+                      <div className="w-20 aspect-[4/3] rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-orange-100/50">
                         <img src={OPTION_IMAGES[opt.toLowerCase()]} className="w-full h-full object-cover" alt={opt} />
                       </div>
+                    )}
+                    {colorGroup && (
+                      <div 
+                        className="w-20 aspect-[4/3] rounded-lg shrink-0 border border-black/10 shadow-inner" 
+                        style={{ backgroundColor: colorGroup.hex }}
+                      />
                     )}
                     <span className="flex-1">{opt}</span>
                     <ChevronRight size={18} className="text-cow-accent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -380,7 +374,7 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
                 >
                   <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-orange-50">
                     <img 
-                      src={breed.localImagePath} 
+                      src={(mainPhotoUrls && mainPhotoUrls[breed.id]) || breed.localImagePath} 
                       className="w-full h-full object-cover" 
                       alt={breed.name} 
                     />
@@ -419,6 +413,7 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
           photoUrl={photoUrl} 
           isSmall={step !== -1} 
           breeds={breeds}
+          mainPhotoUrls={mainPhotoUrls}
         />
         
         {step === -1 && (
@@ -461,7 +456,7 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
   );
 };
 
-const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds: CowBreed[] }> = ({ photoUrl, isSmall, breeds }) => {
+const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds: CowBreed[], mainPhotoUrls?: Record<string, string> }> = ({ photoUrl, isSmall, breeds, mainPhotoUrls }) => {
   const [orbitCows, setOrbitCows] = useState<Array<{ id: string, img: string, angle: number, speed: number, distance: number, size: number, yOffset: number, ySpeed: number }>>([]);
   
   useEffect(() => {
@@ -476,7 +471,7 @@ const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds:
       const breed = weightedBreeds[Math.floor(Math.random() * weightedBreeds.length)];
       items.push({
         id: breed.id + Math.random(),
-        img: breed.localImagePath || '',
+        img: (mainPhotoUrls && mainPhotoUrls[breed.id]) || breed.localImagePath || '',
         angle: (i / count) * Math.PI * 2,
         speed: 0.005 + Math.random() * 0.01,
         distance: 120 + Math.random() * 40,
@@ -486,7 +481,7 @@ const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds:
       });
     }
     setOrbitCows(items);
-  }, [breeds]);
+  }, [breeds, mainPhotoUrls]);
 
   const requestRef = useRef<number>(null);
   const [frame, setFrame] = useState(0);

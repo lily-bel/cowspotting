@@ -46,6 +46,24 @@ h1, h2, h3, h4, button {
   scrollbar-width: none;
 }
 
+.border-chunky-dotted {
+  position: relative;
+  border-bottom: none !important;
+}
+
+.border-chunky-dotted::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-image: radial-gradient(circle, var(--color-cow-border) 3px, transparent 3.5px);
+  background-size: 13px 6px;
+  background-repeat: repeat-x;
+  z-index: 10;
+}
+
 .polaroid {
   background: white;
   padding: 8px 8px 24px 8px;

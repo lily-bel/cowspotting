@@ -30,12 +30,25 @@ export const loadWishlist = async (): Promise<string[]> => {
 };
 
 export const savePhoto = async (cowId: string, photo: CowPhoto) => {
-  const photos = (await photoStorage.getItem<CowPhoto[]>(cowId)) || [];
+  let photos = (await photoStorage.getItem<CowPhoto[]>(cowId)) || [];
+  
   // If this is set as main, unset others
   if (photo.isMain) {
-    photos.forEach(p => p.isMain = false);
+    photos = photos.map(p => ({ ...p, isMain: false }));
+  } else if (photos.length === 0) {
+    // If it's the first photo, it should be main
+    photo.isMain = true;
   }
-  await photoStorage.setItem(cowId, [photo, ...photos]);
+  
+  // Check if we already have this photo (by ID) to avoid duplicates
+  const existingIndex = photos.findIndex(p => p.id === photo.id);
+  if (existingIndex >= 0) {
+    photos[existingIndex] = photo;
+  } else {
+    photos = [photo, ...photos];
+  }
+  
+  await photoStorage.setItem(cowId, photos);
 };
 
 export const savePhotos = async (cowId: string, photos: CowPhoto[]) => {
@@ -47,20 +60,17 @@ export const loadPhotos = async (cowId: string): Promise<CowPhoto[]> => {
 };
 
 export const getMainPhotos = async (): Promise<Record<string, Blob>> => {
-  const keys = await photoStorage.keys();
   const mainPhotos: Record<string, Blob> = {};
   
-  for (const key of keys) {
-    const photos = await photoStorage.getItem<CowPhoto[]>(key);
-    if (photos) {
-      const main = photos.find(p => p.isMain);
-      if (main) {
+  await photoStorage.iterate((photos: CowPhoto[], key) => {
+    if (photos && Array.isArray(photos) && photos.length > 0) {
+      const main = photos.find(p => p.isMain) || photos[0];
+      if (main && main.blob) {
         mainPhotos[key] = main.blob;
-      } else if (photos.length > 0) {
-        mainPhotos[key] = photos[0].blob;
       }
     }
-  }
+  });
+  
   return mainPhotos;
 };
 

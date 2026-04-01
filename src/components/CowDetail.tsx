@@ -30,34 +30,37 @@ export const CowDetail: React.FC<CowDetailProps> = ({
   const cowSightings = sightings.filter(s => s.cowId === cow.id).sort((a, b) => b.timestamp - a.timestamp);
 
   useEffect(() => {
+    let urls: Record<string, string> = {};
     const loadPhotos = async () => {
       const storedPhotos = await storage.loadPhotos(cow.id);
       setPhotos(storedPhotos);
       
-      const urls: Record<string, string> = {};
+      const newUrls: Record<string, string> = {};
       storedPhotos.forEach(p => {
-        urls[p.id] = URL.createObjectURL(p.blob);
+        newUrls[p.id] = URL.createObjectURL(p.blob);
       });
-      setPhotoUrls(urls);
-      
-      return () => {
-        Object.values(urls).forEach(url => URL.revokeObjectURL(url));
-      };
+      setPhotoUrls(newUrls);
+      urls = newUrls;
     };
     loadPhotos();
+    return () => {
+      Object.values(urls).forEach(url => URL.revokeObjectURL(url));
+    };
   }, [cow.id]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const isFirst = photos.length === 0;
     const newPhoto: CowPhoto = {
       id: Math.random().toString(36).substr(2, 9),
       cowId: cow.id,
       blob: file,
-      isMain: photos.length === 0 // First photo is main by default
+      isMain: isFirst
     };
 
+    // If it's the first photo, storage.savePhoto will handle isMain: true
     await storage.savePhoto(cow.id, newPhoto);
     setPhotos(prev => [newPhoto, ...prev]);
     const url = URL.createObjectURL(file);
@@ -68,9 +71,15 @@ export const CowDetail: React.FC<CowDetailProps> = ({
   const handleUpdatePhoto = async (updatedPhoto: CowPhoto) => {
     let newPhotos = photos.map(p => p.id === updatedPhoto.id ? updatedPhoto : p);
     
-    // Handle main photo logic
+    // Handle main photo logic (ensure ONLY ONE isMain)
     if (updatedPhoto.isMain) {
       newPhotos = newPhotos.map(p => p.id === updatedPhoto.id ? p : { ...p, isMain: false });
+    } else {
+      // If we just UN-starred a photo, ensure at least one is starred if list is not empty
+      const stillHasMain = newPhotos.some(p => p.isMain);
+      if (!stillHasMain && newPhotos.length > 0) {
+        newPhotos[0].isMain = true;
+      }
     }
 
     await storage.savePhotos(cow.id, newPhotos);
@@ -87,7 +96,14 @@ export const CowDetail: React.FC<CowDetailProps> = ({
   };
 
   const handleDeletePhoto = async (photoId: string) => {
-    const newPhotos = photos.filter(p => p.id !== photoId);
+    let newPhotos = photos.filter(p => p.id !== photoId);
+    
+    // If we deleted the main photo, promote another
+    const hadMain = photos.find(p => p.id === photoId)?.isMain;
+    if (hadMain && newPhotos.length > 0) {
+      newPhotos[0].isMain = true;
+    }
+
     await storage.savePhotos(cow.id, newPhotos);
     setPhotos(newPhotos);
     if (photoUrls[photoId]) {
@@ -118,8 +134,8 @@ export const CowDetail: React.FC<CowDetailProps> = ({
             className="flex-shrink-0 w-40 polaroid cursor-pointer"
             onClick={() => setEditingPhoto(p)}
           >
-            <div className="w-full h-32 bg-gray-200 overflow-hidden relative">
-              <img src={photoUrls[p.id]} className="w-full h-full object-cover" alt={p.name || "User sighting"} />
+            <div className="w-full h-32 overflow-hidden relative flex items-center justify-center">
+              <img src={photoUrls[p.id]} className="w-full h-full object-contain" alt={p.name || "User sighting"} />
               {p.isMain && (
                 <div className="absolute top-1 right-1 bg-orange-400 text-white p-1 rounded-full shadow-sm">
                   <Star size={12} className="fill-current" />
@@ -143,9 +159,16 @@ export const CowDetail: React.FC<CowDetailProps> = ({
       </div>
 
       {/* Info Header */}
-      <div className="flex justify-between items-start mb-2">
-        <h2 className="text-3xl font-bold text-cow-accent">{cow.name}</h2>
-        <button onClick={onToggleWishlist} className="text-2xl text-cow-accent transition-transform active:scale-125">
+      <div className="flex justify-between items-start mb-1">
+        <div>
+          <h2 className="text-3xl font-bold text-cow-accent leading-tight">{cow.name}</h2>
+          {cow.altName && (
+            <p className="text-sm font-bold text-cow-text opacity-60 italic">
+              aka {cow.altName}
+            </p>
+          )}
+        </div>
+        <button onClick={onToggleWishlist} className="text-2xl text-cow-accent transition-transform active:scale-125 pt-1">
           <Heart size={32} className={isWishlisted ? "fill-current" : ""} />
         </button>
       </div>
@@ -157,6 +180,9 @@ export const CowDetail: React.FC<CowDetailProps> = ({
 
       {/* Tags */}
       <div className="flex gap-2 mb-4 flex-wrap">
+        {cow.hybrid && (
+          <span className="px-2 py-1 bg-orange-100 text-cow-text text-xs rounded-full border border-orange-200 font-bold">Hybrid</span>
+        )}
         {cow.tags.map(t => (
           <span key={t} className="px-2 py-1 bg-orange-100 text-cow-text text-xs rounded-full border border-orange-200 font-bold">{t}</span>
         ))}
@@ -178,6 +204,12 @@ export const CowDetail: React.FC<CowDetailProps> = ({
               </span>
             </div>
           )}
+          <div className="bg-white/50 p-2 rounded border border-cow-border">
+            <span className="block text-[10px] font-bold uppercase opacity-60">Hybrid</span>
+            <span className="leading-tight block">
+              {cow.hybrid || 'Purebred'}
+            </span>
+          </div>
           <div className="bg-white/50 p-2 rounded border border-cow-border">
             <span className="block text-[10px] font-bold uppercase opacity-60">Pattern & Color</span>
             <div className="leading-tight">

@@ -4,6 +4,7 @@ import { X, MapPin, Loader2 } from 'lucide-react';
 
 interface SpotModalProps {
   cow: CowBreed;
+  photoUrl?: string;
   existingData?: Sighting;
   onClose: () => void;
   onSave: (data: Omit<Sighting, 'id'> | Sighting) => void;
@@ -11,6 +12,7 @@ interface SpotModalProps {
 
 export const SpotModal: React.FC<SpotModalProps> = ({ 
   cow, 
+  photoUrl,
   existingData, 
   onClose, 
   onSave 
@@ -63,8 +65,14 @@ export const SpotModal: React.FC<SpotModalProps> = ({
       </h3>
       
       <div className="flex justify-center mb-4">
-        <div className="w-20 h-20 rounded-full border-4 border-cow-card overflow-hidden flex items-center justify-center bg-white">
-          <span className="text-4xl">🐄</span>
+        <div className="w-24 h-24 rounded-full border-4 border-cow-card overflow-hidden flex items-center justify-center bg-white shadow-inner">
+          {photoUrl ? (
+            <img src={photoUrl} className="w-full h-full object-cover" alt={cow.name} />
+          ) : cow.localImagePath ? (
+            <img src={cow.localImagePath} className="w-full h-full object-cover" alt={cow.name} />
+          ) : (
+            <span className="text-4xl">🐄</span>
+          )}
         </div>
       </div>
       <p className="text-center font-bold text-cow-accent mb-4">{cow.name}</p>

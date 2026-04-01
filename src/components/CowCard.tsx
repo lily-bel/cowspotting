@@ -1,7 +1,7 @@
 import React from 'react';
 import type { CowBreed } from '../types';
 import { Stars } from './ui/Stars';
-import { Binoculars, Heart } from 'lucide-react';
+import { Binoculars, Heart, Star } from 'lucide-react';
 
 interface CowCardProps {
   cow: CowBreed;
@@ -43,11 +43,16 @@ export const CowCard: React.FC<CowCardProps> = ({
       `}
     >
       {/* Icon/Image Placeholder */}
-      <div className="w-16 h-16 bg-white rounded flex-shrink-0 overflow-hidden border border-orange-200 flex items-center justify-center">
+      <div className="w-20 h-15 rounded flex-shrink-0 overflow-hidden flex items-center justify-center aspect-[4/3] relative">
         {mainPhoto ? (
-          <img src={mainPhoto} className="w-full h-full object-cover" alt={cow.name} />
+          <>
+            <img src={mainPhoto} className="w-full h-full object-contain" alt={cow.name} />
+            <div className="absolute top-0.5 right-0.5 bg-orange-400 text-white p-0.5 rounded-full shadow-sm z-10">
+              <Star size={8} className="fill-current" />
+            </div>
+          </>
         ) : fallbackPhoto ? (
-          <img src={fallbackPhoto} className="w-full h-full object-cover" alt={cow.name} />
+          <img src={fallbackPhoto} className="w-full h-full object-contain" alt={cow.name} />
         ) : (
           <span className="text-3xl text-cow-accent opacity-50">🐄</span>
         )}
@@ -56,12 +61,22 @@ export const CowCard: React.FC<CowCardProps> = ({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <h3 className="font-bold text-lg leading-tight">{cow.name}</h3>
+        {cow.altName && (
+          <p className="text-[10px] text-cow-text/60 font-bold leading-tight truncate">
+            {cow.altName}
+          </p>
+        )}
         <div className="flex items-center mt-0.5">
           <Stars count={cow.rarity} size={12} />
         </div>
         <div className="flex flex-wrap gap-1 mt-1.5">
+          {cow.hybrid && (
+            <span className="text-[9px] font-bold tracking-wider bg-white/60 px-1.5 py-0.5 rounded-sm border border-cow-accent/10 text-cow-text/80 shadow-sm">
+              Hybrid
+            </span>
+          )}
           {cow.tags.map(tag => (
-            <span key={tag} className="text-[9px] font-bold uppercase tracking-wider bg-white/60 px-1.5 py-0.5 rounded-sm border border-cow-accent/10 text-cow-text/80 shadow-sm">
+            <span key={tag} className="text-[9px] font-bold tracking-wider bg-white/60 px-1.5 py-0.5 rounded-sm border border-cow-accent/10 text-cow-text/80 shadow-sm">
               {tag}
             </span>
           ))}

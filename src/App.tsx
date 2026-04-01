@@ -5,7 +5,7 @@ import { CowDetail } from './components/CowDetail';
 import { SpotModal } from './components/SpotModal';
 import { CowIdentifier } from './components/CowIdentifier';
 import type { Sighting, CowBreed, CowPhoto } from './types';
-import { Binoculars, LayoutGrid, Search, ArrowUpDown, Sparkles, Filter, X, ChevronDown } from 'lucide-react';
+import { Binoculars, LayoutGrid, Search, ArrowUpDown, Sparkles, Filter, X, ChevronDown, Star } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import * as storage from './utils/storage';
@@ -63,22 +63,35 @@ function App() {
 
   const refreshPhotos = () => setPhotosVersion(v => v + 1);
 
+  const photoUrlsRef = useRef<Record<string, string>>({});
+
   useEffect(() => {
     const loadMainPhotos = async () => {
       const photos = await storage.getMainPhotos();
-      const urls: Record<string, string> = {};
+      const newUrls: Record<string, string> = {};
+      
+      // Revoke old URLs first
+      Object.values(photoUrlsRef.current).forEach(url => URL.revokeObjectURL(url));
+      
       Object.entries(photos).forEach(([id, blob]) => {
-        urls[id] = URL.createObjectURL(blob);
+        newUrls[id] = URL.createObjectURL(blob);
       });
-      setMainPhotoUrls(prevUrls => {
-        Object.values(prevUrls).forEach(URL.revokeObjectURL);
-        return urls;
-      });
+      
+      setMainPhotoUrls(newUrls);
+      photoUrlsRef.current = newUrls;
     };
+    
     if (!loading) {
       loadMainPhotos();
     }
   }, [loading, sightings, photosVersion]);
+
+  // Global cleanup on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(photoUrlsRef.current).forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const filteredCows = useMemo(() => {
     const scores = breeds.map(cow => {
@@ -214,7 +227,10 @@ function App() {
 
         {/* HEADER */}
         {view !== 'identify' && (
-          <div className="p-4 border-b border-cow-border bg-[#fffbfb] flex justify-between items-center shrink-0">
+          <div className={cn(
+            "p-4 bg-[#fffbfb] flex justify-between items-center shrink-0",
+            (view === 'spot' || view === 'collection') ? "border-chunky-dotted mb-2" : "border-b border-cow-border"
+          )}>
             <h1 className="text-2xl text-cow-accent font-bold">
               {view === 'spot' && 'Cowspotting'}
               {view === 'collection' && 'My Collection'}
@@ -368,16 +384,26 @@ function App() {
                       getRarityColor(cow.rarity)
                     )}
                   >
-                    <div className="w-full aspect-square bg-white rounded mb-2 flex items-center justify-center border border-orange-200 text-3xl overflow-hidden">
+                    <div className="w-full aspect-[4/3] rounded mb-2 flex items-center justify-center text-3xl overflow-hidden relative">
                       {mainPhotoUrls[cow.id] ? (
-                        <img src={mainPhotoUrls[cow.id]} className="w-full h-full object-cover" alt={cow.name} />
+                        <>
+                          <img src={mainPhotoUrls[cow.id]} className="w-full h-full object-contain" alt={cow.name} />
+                          <div className="absolute top-1 right-1 bg-orange-400 text-white p-1 rounded-full shadow-sm z-10">
+                            <Star size={10} className="fill-current" />
+                          </div>
+                        </>
                       ) : cow.localImagePath ? (
-                        <img src={cow.localImagePath} className="w-full h-full object-cover" alt={cow.name} />
+                        <img src={cow.localImagePath} className="w-full h-full object-contain" alt={cow.name} />
                       ) : (
                         '🐄'
                       )}
                     </div>
                     <h3 className="font-bold text-sm leading-tight text-cow-text line-clamp-2">{cow.name}</h3>
+                    {cow.altName && (
+                      <p className="text-[10px] text-cow-text/60 font-bold leading-tight line-clamp-1 mt-0.5">
+                        {cow.altName}
+                      </p>
+                    )}
                   </div>
                 ))}
                 {stats.uniqueBreeds === 0 && (
@@ -405,6 +431,7 @@ function App() {
           {view === 'identify' && (
             <CowIdentifier 
               breeds={breeds} 
+              mainPhotoUrls={mainPhotoUrls}
               onSelectBreed={handleSelectBreedFromIdentifier}
               onQuit={() => setView('spot')}
             />
@@ -454,6 +481,7 @@ function App() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <SpotModal 
             cow={selectedCow} 
+            photoUrl={mainPhotoUrls[selectedCow.id]}
             existingData={editingSighting}
             onClose={() => setIsModalOpen(false)}
             onSave={(data) => {
