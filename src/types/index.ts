@@ -9,6 +9,7 @@ export type CowBreed = {
   horns: string;
   fluffy: string;
   special: string;
+  specialDetailed: string;
   hybrid: string;
   mainColor: string;
   pattern: string;
@@ -18,7 +19,6 @@ export type CowBreed = {
   altName: string;
   tags: string[];
   wikipediaUrl?: string;
-  imageUrl?: string;
   localImagePath?: string;
 }
 

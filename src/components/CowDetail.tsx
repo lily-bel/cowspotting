@@ -134,8 +134,8 @@ export const CowDetail: React.FC<CowDetailProps> = ({
 
         {/* Default Placeholder / Wikipedia Image */}
         <div className="flex-shrink-0 w-64 h-48 rounded-lg overflow-hidden retro-shadow border-2 border-white bg-white flex items-center justify-center">
-          {(cow.localImagePath || cow.imageUrl) ? (
-            <img src={cow.localImagePath || cow.imageUrl} className="w-full h-full object-cover" alt={cow.name} />
+          {cow.localImagePath ? (
+            <img src={cow.localImagePath} className="w-full h-full object-cover" alt={cow.name} />
           ) : (
             <span className="text-6xl">🐄</span>
           )}
@@ -163,34 +163,48 @@ export const CowDetail: React.FC<CowDetailProps> = ({
       </div>
 
       <div className="space-y-4 mb-8">
-        <p className="text-lg leading-relaxed font-lora italic">
-          {cow.special || "A beautiful cow breed with unique characteristics."}
-        </p>
+        {cow.specialDetailed && (
+          <p className="text-lg leading-relaxed font-lora italic">
+            {cow.specialDetailed}
+          </p>
+        )}
         
         <div className="grid grid-cols-2 gap-2 text-sm">
           {cow.primaryRegion && (
             <div className="bg-white/50 p-2 rounded border border-cow-border">
               <span className="block text-[10px] font-bold uppercase opacity-60">Region</span>
-              {cow.primaryRegion}
+              <span className="leading-tight block">
+                {cow.primaryRegion.replace(/,/g, ', ').replace(/\//g, ' / ')}
+              </span>
             </div>
           )}
-          {cow.mainColor && (
-            <div className="bg-white/50 p-2 rounded border border-cow-border">
-              <span className="block text-[10px] font-bold uppercase opacity-60">Color</span>
-              {cow.mainColor}
+          <div className="bg-white/50 p-2 rounded border border-cow-border">
+            <span className="block text-[10px] font-bold uppercase opacity-60">Pattern & Color</span>
+            <div className="leading-tight">
+              <div className="font-bold mb-1 capitalize">{cow.pattern || 'Solid'}</div>
+              <div className="text-[10px]">
+                <span className="capitalize">
+                  {Array.from(new Set([
+                    ...cow.mainColor.split(/[,/]/).map(s => s.trim()),
+                    ...(cow.secondaryColor?.split(/[,/]/).map(s => s.trim()) || [])
+                  ])).filter(Boolean).join(', ')}
+                </span>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
       
-      <a 
-        href={cow.wikipediaUrl || `https://en.wikipedia.org/wiki/${cow.name.replace(/ /g, '_')}_cattle`} 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-sm text-cow-accent underline mb-8 font-bold"
-      >
-        Read more on Wikipedia <ExternalLink size={14} />
-      </a>
+      {cow.wikipediaUrl && (
+        <a 
+          href={cow.wikipediaUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sm text-cow-accent underline mb-8 font-bold"
+        >
+          Read more about {cow.name} <ExternalLink size={14} />
+        </a>
+      )}
 
       {/* Sighting History */}
       <h3 className="text-xl font-bold border-b-2 border-cow-border pb-2 mb-4 flex items-center gap-2">

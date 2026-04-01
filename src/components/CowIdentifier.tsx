@@ -51,13 +51,52 @@ const QUESTIONS: Question[] = [
   },
   { id: 'hump', text: "Does the cow have a notable hump above her neck?", column: 'hump', type: 'choice', extraOptions: ['No'] },
   { id: 'fluffy', text: "Is the cow notably fluffy?", column: 'fluffy', type: 'choice', extraOptions: ['No'] },
-  { id: 'horns', text: "Does the cow have unique horns?", column: 'horns', type: 'choice', extraOptions: ['No'] },
   { id: 'special', text: "Does the cow have any of these special characteristics?", column: 'special', type: 'choice', extraOptions: ['No'] },
   { id: 'region', text: "In which US state was this cow found?", column: 'primaryRegion', type: 'choice', staticOptions: US_STATES, extraOptions: ["Don't Know"] },
   { id: 'specialLocation', text: "Was the cow found in a special location?", column: 'specialLocation', type: 'choice', extraOptions: ['No'], ignoreSlash: true },
   { id: 'dairy', text: "Was this cow at a dairy farm?", column: 'isDairy', type: 'choice', staticOptions: ['Yes', 'No', "Don't Know"] },
   { id: 'hybrid', text: "Is this cow a hybrid cow?", column: 'hybrid', type: 'choice', staticOptions: ['Yes', 'No', "Don't Know"] },
 ];
+
+const OPTION_IMAGES: Record<string, string> = {
+  // Patterns
+  'solid': '/images/breeds/black-angus.jpg',
+  'spotted': '/images/breeds/holstein-friesian.jpg',
+  'points': '/images/breeds/british-white.jpg',
+  'belted': '/images/breeds/belted-galloway.jpg',
+  'white face': '/images/breeds/hereford.jpg',
+  'white face + neck': '/images/breeds/black-baldy.jpg',
+  'ombre': '/images/breeds/brahman.jpg',
+  'lineback': '/images/breeds/randall-lineback.jpg',
+  'roan': '/images/breeds/shorthorn.jpg',
+  'speckled': '/images/breeds/speckle-park.JPG',
+  'brindle': '/images/breeds/tiger-stripe.jpg',
+
+  // Colors
+  'black': '/images/breeds/black-angus.jpg',
+  'red': '/images/breeds/red-angus.jpg',
+  'white': '/images/breeds/charolais.jpg',
+  'grey': '/images/breeds/gascon.JPG',
+  'dark grey': '/images/breeds/bazadais.jpg',
+  'light grey': '/images/breeds/nelore.jpg',
+  'fawn': '/images/breeds/jersey.jpg',
+  'brown': '/images/breeds/brown-swiss.jpg',
+  'blue': '/images/breeds/belgian-blue.jpg',
+  'dun': '/images/breeds/dexter.JPG',
+  'blonde': '/images/breeds/blonde-d-aquitaine.jpg',
+  'yellow': '/images/breeds/simmental.jpg',
+  'golden': '/images/breeds/gelbvieh.jpg',
+  'mouse-grey': '/images/breeds/smokey.jpg',
+  'cherry red': '/images/breeds/santa-gertrudis.jpg',
+  'deep red': '/images/breeds/red-poll.JPG',
+  'chestnut brown': '/images/breeds/pinzgauer.JPG',
+  'tan': '/images/breeds/jersey.jpg',
+  'light brown': '/images/breeds/jersey.jpg',
+  'dark brown': '/images/breeds/akaushi.jpg',
+  'silver-grey': '/images/breeds/murray-grey.JPG',
+  'cream': '/images/breeds/charbray.jpg',
+  'golden-brown': '/images/breeds/parthenais.jpg',
+};
 
 export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBreed, onQuit }) => {
   const [step, setStep] = useState<number>(-1); 
@@ -137,12 +176,15 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
           return 0;
         });
         map[q.id] = [...sortedTraitOptions, 'No'];
-      } else if (q.id === 'horns') {
-        map[q.id] = ['Big', 'No'];
       } else {
         // DEFAULT: No at top, traits after
-        const topExtras = (q.extraOptions || []).filter(o => o === 'No');
-        map[q.id] = [...topExtras, ...sortedTraitOptions];
+        // Special case: specialLocation also wants 'No' at the bottom
+        if (q.id === 'specialLocation') {
+          map[q.id] = [...sortedTraitOptions, 'No'];
+        } else {
+          const topExtras = (q.extraOptions || []).filter(o => o === 'No');
+          map[q.id] = [...topExtras, ...sortedTraitOptions];
+        }
       }
 
       // Consistently put "Don't Know" at the absolute bottom
@@ -190,7 +232,7 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
 
         // Determine Weight
         let weight = 1.0;
-        if (q.id === 'hump' || q.id === 'horns') {
+        if (q.id === 'hump') {
           weight = 2.0;
         } else if (q.id === 'fluffy') {
           weight = answer.toLowerCase() === 'thick coat' ? 1.0 : 2.0;
@@ -295,21 +337,29 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
             </h3>
 
             <div ref={scrollAreaRef} className="flex-1 overflow-y-auto no-scrollbar space-y-3 pb-6">
-              {optionsMap[currentQuestion!.id]?.map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => handleAnswer(opt)}
-                  className={cn(
-                    "w-full text-left p-4 rounded-xl border-2 transition-all font-bold flex justify-between items-center group",
-                    (opt === "Don't Know") 
-                      ? "border-dashed border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500" 
-                      : "border-orange-100 bg-orange-50/30 hover:bg-orange-50 hover:border-cow-accent"
-                  )}
-                >
-                  {opt}
-                  <ChevronRight size={18} className="text-cow-accent opacity-0 group-hover:opacity-100 transition-opacity" />
-                </button>
-              ))}
+              {optionsMap[currentQuestion!.id]?.map(opt => {
+                const showImage = (currentQuestion!.id === 'pattern' || currentQuestion!.id === 'mainColor' || currentQuestion!.id === 'secondaryColor') && OPTION_IMAGES[opt.toLowerCase()];
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => handleAnswer(opt)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-xl border-2 transition-all font-bold flex items-center gap-4 group",
+                      (opt === "Don't Know") 
+                        ? "border-dashed border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500" 
+                        : "border-orange-100 bg-orange-50/30 hover:bg-orange-50 hover:border-cow-accent"
+                    )}
+                  >
+                    {showImage && (
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-orange-100/50">
+                        <img src={OPTION_IMAGES[opt.toLowerCase()]} className="w-full h-full object-cover" alt={opt} />
+                      </div>
+                    )}
+                    <span className="flex-1">{opt}</span>
+                    <ChevronRight size={18} className="text-cow-accent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : step >= QUESTIONS.length ? (
@@ -330,7 +380,7 @@ export const CowIdentifier: React.FC<CowIdentifierProps> = ({ breeds, onSelectBr
                 >
                   <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden shrink-0 border border-orange-50">
                     <img 
-                      src={breed.localImagePath || breed.imageUrl} 
+                      src={breed.localImagePath} 
                       className="w-full h-full object-cover" 
                       alt={breed.name} 
                     />
@@ -426,7 +476,7 @@ const CrystalBall: React.FC<{ photoUrl: string | null, isSmall: boolean, breeds:
       const breed = weightedBreeds[Math.floor(Math.random() * weightedBreeds.length)];
       items.push({
         id: breed.id + Math.random(),
-        img: breed.localImagePath || breed.imageUrl || '',
+        img: breed.localImagePath || '',
         angle: (i / count) * Math.PI * 2,
         speed: 0.005 + Math.random() * 0.01,
         distance: 120 + Math.random() * 40,

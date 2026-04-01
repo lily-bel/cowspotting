@@ -340,7 +340,7 @@ function App() {
                     key={cow.id}
                     cow={cow}
                     mainPhoto={mainPhotoUrls[cow.id]}
-                    fallbackPhoto={cow.localImagePath || cow.imageUrl}
+                    fallbackPhoto={cow.localImagePath}
                     seenCount={sightings.filter(s => s.cowId === cow.id).length}
                     isWishlisted={wishlist.includes(cow.id)}
                     onClick={() => { setSelectedCowId(cow.id); setView('detail'); }}
@@ -371,8 +371,8 @@ function App() {
                     <div className="w-full aspect-square bg-white rounded mb-2 flex items-center justify-center border border-orange-200 text-3xl overflow-hidden">
                       {mainPhotoUrls[cow.id] ? (
                         <img src={mainPhotoUrls[cow.id]} className="w-full h-full object-cover" alt={cow.name} />
-                      ) : (cow.localImagePath || cow.imageUrl) ? (
-                        <img src={cow.localImagePath || cow.imageUrl} className="w-full h-full object-cover" alt={cow.name} />
+                      ) : cow.localImagePath ? (
+                        <img src={cow.localImagePath} className="w-full h-full object-cover" alt={cow.name} />
                       ) : (
                         '🐄'
                       )}

@@ -28,7 +28,7 @@ export const parseCowsCsv = async (): Promise<CowBreed[]> => {
           if (row['Dairy'] && row['Dairy'].toLowerCase() !== 'none') tags.push(formatTag(row['Dairy']));
           if (row['Hump'] && row['Hump'].toLowerCase() !== 'none' && row['Hump'].toLowerCase() !== 'no') tags.push(formatTag(row['Hump']));
           if (row['Fluffy'] && row['Fluffy'].toLowerCase() !== 'none' && row['Fluffy'].toLowerCase() !== 'no') tags.push(formatTag(row['Fluffy']));
-          if (row['Special'] && row['Special'].toLowerCase() !== 'none' && row['Special'].toLowerCase() !== 'no') tags.push(formatTag(row['Special']));
+          if (row['Special_Detailed'] && row['Special_Detailed'].toLowerCase() !== 'none' && row['Special_Detailed'].toLowerCase() !== 'no') tags.push(formatTag(row['Special_Detailed']));
 
           return {
             id: slugify(name),
@@ -41,6 +41,7 @@ export const parseCowsCsv = async (): Promise<CowBreed[]> => {
             horns: row['Horns'] || '',
             fluffy: row['Fluffy'] || '',
             special: row['Special'] || '',
+            specialDetailed: row['Special_Detailed'] || '',
             hybrid: row['Hybrid'] || '',
             mainColor: row['Main Color'] || '',
             pattern: row['Pattern'] || '',
@@ -50,7 +51,6 @@ export const parseCowsCsv = async (): Promise<CowBreed[]> => {
             altName: row['Alt Name'] || '',
             tags: Array.from(new Set(tags)).filter(Boolean),
             wikipediaUrl: row['Wikipedia URL'] || '',
-            imageUrl: row['Image URL'] || '',
             localImagePath: row['Local Image Path'] || '',
           };
         });
