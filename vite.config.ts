@@ -9,10 +9,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['cowicon.png', 'favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Cowdex',
-        short_name: 'Cowdex',
+        name: 'Cowspotting',
+        short_name: 'Cowspotting',
         description: 'Spot and collect cow breeds!',
         theme_color: '#436a7b',
         icons: [
