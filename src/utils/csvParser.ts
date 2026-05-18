@@ -13,7 +13,7 @@ const formatTag = (tag: string) => {
 };
 
 export const parseCowsCsv = async (): Promise<CowBreed[]> => {
-  const response = await fetch('/data/cows_enriched.csv');
+  const response = await fetch(`${import.meta.env.BASE_URL}data/cows_enriched.csv`);
   const csvText = await response.text();
   
   return new Promise((resolve, reject) => {
@@ -51,7 +51,7 @@ export const parseCowsCsv = async (): Promise<CowBreed[]> => {
             altName: row['Alt Name'] || '',
             tags: Array.from(new Set(tags)).filter(Boolean),
             wikipediaUrl: row['Wikipedia URL'] || '',
-            localImagePath: row['Image URL'] || '',
+            localImagePath: row['Image URL'] ? `${import.meta.env.BASE_URL}${row['Image URL'].startsWith('/') ? row['Image URL'].slice(1) : row['Image URL']}` : '',
           };
         });
         resolve(breeds);
