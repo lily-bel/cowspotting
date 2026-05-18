@@ -1,5 +1,5 @@
 # Cowspotting
-## Link -[lily-bel.github.io/cowspotting](https://lily-bel.github.io/cowspotting/)
+## Link - [lily-bel.github.io/cowspotting](https://lily-bel.github.io/cowspotting/)
 
 An app for identifying and cataloging cows in the US.
 
